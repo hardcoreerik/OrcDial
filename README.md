@@ -44,11 +44,15 @@ See the [screen gallery](docs/screenshots/README.md) for native-resolution PNGs 
 
 ## Pairing
 
-Use a compatible OrcSDR build with the current ESP-NOW receiver integration. On the Tab5, open Settings → Companion and tap CONNECT ORCDIAL or RE-PAIR ORCDIAL. On Dial Home, hold the encoder for four seconds to search, or use its Connect screen. Both sides save the peer address. After pairing, the Dial searches at startup; the Tab5 enables the accessory bridge after its startup splash and router association settle.
+The unreleased branch requires version-4 applications on both devices. Open
+**Settings → Accessories & Companion** on the Tab5 and **Devices** in the Dial
+carousel. Pair on both, compare the six-digit code and confirm on BOTH devices.
+Pair establishes persistent trust. Connect, Disconnect and Forget & Re-pair are
+separate actions; boot connection defaults on after successful pairing.
 
-ESP-NOW is the only current Dial transport. Router Wi-Fi and ESP-NOW must use the same channel when sharing the Tab5 radio; the latest bench checks used channel 11. The tested receiver integration uses OrcSDR's custom C6 relay. Ordinary Wi-Fi support by itself does not establish that a stock C6 image exposes this relay. Do not assume an older OrcSDR release is compatible or install C6 firmware from this repository.
-
-**Pairing currently uses saved MAC addresses without encryption or cryptographic authentication.** It is a prototype connection mechanism, not a production trust boundary.
+See [secure pairing](docs/SECURE_PAIRING.md) for commands, protocol and gates.
+The published `v0.1.0-beta.1` tag still uses the earlier MAC-only prototype; it is
+unchanged. Do not mix its firmware with the unreleased version-4 application.
 
 ## USB diagnostics and tests
 
@@ -61,7 +65,7 @@ python tests/host_probe.py --port COM17
 
 These scripts require attached hardware. The Dial smoke test starts discovery and exercises command parsing without tuning. The host probe opens the Tab5 pairing window and queues discovery; it does not prove RF delivery or pairing and does not flash firmware. Stop any monitor using the same port first.
 
-The small native C++ assertion programs are `tests/protocol_test.cpp` and `tests/controller_test.cpp`; they need a C++17 host compiler. [PROTOCOL.md](PROTOCOL.md) documents the 64-byte version-3 wire format.
+The small native C++ assertion programs are `tests/protocol_test.cpp` and `tests/controller_test.cpp`; they need a C++17 host compiler. [PROTOCOL.md](PROTOCOL.md) documents the version-4 encrypted control payload.
 
 ## Validation and limits
 

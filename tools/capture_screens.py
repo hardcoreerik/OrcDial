@@ -46,6 +46,8 @@ add('home-demo', 'Home (demo)', 'primary', view=0)
 add('home-offline', 'Home (offline)', 'primary', view=0, demo=0)
 add('connection', 'Connection screen', 'primary', view=3)
 add('connection-searching', 'Connection search preview', 'primary', view=3, pairing=1)
+for state, name in enumerate(['unpaired', 'searching', 'trusted-offline', 'connected', 'disconnected', 'verification', 'forget-confirmation', 'upgrade', 'timeout']):
+    cases.append(dict(slug='devices-'+name,title='Devices: '+name,group='devices',command=f'ORCDIAL_DOC_DEVICE {state} 0',demo=True))
 for id, slug, name, style in dashboards:
     add('selector-' + slug, name + ' selector', 'selectors', view=1, dashboard=id, style=style)
     if id == 0:
@@ -156,7 +158,7 @@ manifest = dict(width=240, height=240, transport='USB framebuffer export',
                 source='M5Dial doc_capture firmware, production UI renderer',
                 note='Preview data only. No live RF readings or receiver control. Raw square frames preserve exported pixels; rounded PNGs mask physical LCD corners.',
                 cases=cases)
-(args.output / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
+(args.output / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
 font = ImageFont.load_default()
 for group in dict.fromkeys(case['group'] for case in cases):
     items = [case for case in cases if case['group'] == group]
@@ -170,12 +172,12 @@ for group in dict.fromkeys(case['group'] for case in cases):
         pen.text((x, y+245), case['title'], font=font, fill='#e8f5f6')
     sheet.save(args.output / ('contact-' + group + '.png'))
 lines = ['# OrcDial screen gallery', '',
-         'Captured from the M5Dial using the production UI renderer. These are documentation previews, not proof of live RF reception or implementation of every dashboard action. Boot and offline states retain their normal labels; other previews are marked DEMO. The connected/paired live status is not simulated.', '',
+         'Captured from the M5Dial using the production UI renderer. These are documentation previews, not proof of live RF reception or implementation of every dashboard action. Boot and offline states retain their normal labels; other previews are marked DEMO. Devices trust/connection states are display-only DEMO fixtures, not evidence of live pairing.', '',
          'Each image is 240 × 240. Transparent corners match the round display; `raw/` preserves unmasked framebuffer captures. The manifest records commands and hashes. Animation is captured as a single frame, not an animation recording.', '']
 for group in dict.fromkeys(case['group'] for case in cases):
     lines += ['## ' + group.replace('-', ' ').title(), '', f'![{group}](contact-{group}.png)', '']
     for case in [c for c in cases if c['group'] == group]:
         lines += [f'- [{case["title"]}]({case["path"]})']
     lines += ['']
-(args.output / 'README.md').write_text('\n'.join(lines).rstrip() + '\n')
+(args.output / 'README.md').write_text('\n'.join(lines).rstrip() + '\n', encoding='utf-8')
 print(f'Captured {len(cases)} screens, manifest and gallery written.', flush=True)

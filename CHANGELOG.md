@@ -1,5 +1,25 @@
 # OrcDial changelog
 
+## Unreleased — Devices and secure pairing
+
+- Review repairs: release failed initialization resources, preserve ordered local
+  actions, block replacement pairing after failed revocation, and retry encrypted
+  Forget notices. Tab5 serial mutations require authentication and storage errors
+  are visible with a retry action. Independent review and hardware acceptance
+  remain pending.
+
+- Add a local Devices carousel entry, usable offline and protected from
+  incoming dashboard navigation. Add confirmation before Forget & Re-pair.
+- Separate Pair, Connect, Disconnect and Forget; expose persistent boot
+  connection preferences and matching tablet Accessories & Companion controls.
+- Replace MAC-only authorization with version-4 P-256 numeric comparison,
+  persistent per-pair trust, fresh session challenges and AES-GCM controls.
+- Keep the 64-byte C6 relay unchanged; move crypto and fragment work into a
+  worker. Reject unauthenticated legacy controls, replay and stale sessions.
+- Add published cryptographic vectors, targeted two-device host tests and
+  native-resolution display-only Devices captures.
+- Not released or hardware accepted. See `docs/SECURE_PAIRING.md` for gates.
+
 ## v0.1.0-beta.1 — 2026-10-05
 
 First standalone OrcDial source release for the M5Stack M5Dial. OrcDial is an

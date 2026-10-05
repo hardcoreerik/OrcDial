@@ -5,6 +5,12 @@
 #include <cstdio>
 
 namespace orc {
+static secure::Status device_status;
+static int device_selection=0;
+static bool device_forget_confirmation=false;
+void devices_state(const secure::Status& status,int selection,bool confirmation) {
+  device_status=status;device_selection=selection;device_forget_confirmation=confirmation;
+}
 extern const uint8_t badge_start[] asm("_binary_assets_orc_badge_104_png_start");
 extern const uint8_t badge_end[] asm("_binary_assets_orc_badge_104_png_end");
 #define DECLARE_DASHBOARD_IMAGE(name) \
@@ -251,6 +257,7 @@ static void artwork(lgfx::LGFXBase& d, Dashboard id, uint32_t c) {
 }
 static void selector_icon(lgfx::LGFXBase& d, Dashboard id, int x, int y,
                           bool small = false) {
+  if(id==devices_entry)id=Dashboard::settings;
   const unsigned index = static_cast<unsigned>(id);
   if (index >= sizeof(dashboard_images) / sizeof(dashboard_images[0])) return;
   const auto& image = dashboard_images[index];
@@ -356,11 +363,36 @@ void draw(const RadioState& state, Focus focus, bool connected, bool pairing,
   const uint32_t now = millis();
   ambient(d, view == View::carousel ? selected : state.dashboard, now);
   if (view == View::connection) {
-    d.drawCircle(120, 120, 112, cyan);
-    d.setTextColor(green, bg); d.setTextSize(3); draw_text(d, "ORCDIAL", 120, 56);
-    d.setTextColor(ink, bg); d.setTextSize(3); draw_text(d, connected ? "CONNECTED" : "CONNECT", 120, 104);
-    d.setTextSize(2); draw_text(d, pairing ? "SEARCHING" : "TAP TO PAIR", 120, 145);
-    d.setTextColor(dim, bg); d.setTextSize(1); draw_text(d, "BOTTOM: BACK", 120, 190);
+    const auto& s=device_status;
+    d.drawCircle(120,120,112,cyan);d.setTextColor(ink,bg);d.setTextSize(3);draw_text(d,"DEVICES",120,37);
+    d.setTextSize(2);draw_text(d,s.trusted?"OrcSDR Tab5":"No trusted tablet",120,62);
+    char id[32];const auto* fingerprint=s.trusted?s.peer_identity:s.identity;
+    std::snprintf(id,sizeof id,"ID %02X%02X-%02X%02X",fingerprint[0],fingerprint[1],fingerprint[14],fingerprint[15]);
+    d.setTextColor(dim,bg);d.setTextSize(1.5);draw_text(d,id,120,83);
+    const char* labels[3]{};
+    if(device_forget_confirmation) {
+      d.setTextColor(ink,bg);d.setTextSize(2);draw_text(d,"Forget tablet?",120,110);
+      labels[0]="CANCEL";labels[1]="FORGET & PAIR";
+    }else if(s.state==secure::State::verify) {
+      char code[8];std::snprintf(code,sizeof code,"%06lu",(unsigned long)s.code);
+      d.setTextColor(cyan,bg);d.setTextSize(4);draw_text(d,code,120,111);
+      labels[0]="CODES MATCH";labels[1]="CANCEL";
+    }else {
+      d.setTextColor(s.trusted?green:cyan,bg);d.setTextSize(1.5);
+      draw_text(d,s.upgrade?"Pairing upgrade required":s.trusted?"TRUSTED":"NOT PAIRED",120,101);
+      d.setTextColor(ink,bg);draw_text(d,secure::state_name(s.state),120,119);
+      labels[0]=pairing?"CANCEL PAIRING":s.state==secure::State::connected?"DISCONNECT":s.trusted?"CONNECT":"PAIR";
+      labels[1]=s.trusted?"FORGET & RE-PAIR":"BACK";
+      labels[2]=s.trusted?(s.boot_connect?"BOOT CONNECT: ON":"BOOT CONNECT: OFF"):nullptr;
+    }
+    for(int i=0;i<3;++i)if(labels[i]) {
+      const int y=145+i*27;
+      if(i==device_selection)d.fillRoundRect(30,y-11,180,24,6,panel);
+      d.setTextColor(i==device_selection?cyan:dim,bg);d.setTextSize(2);draw_text(d,labels[i],120,y);
+    }
+    d.setTextColor(dim,bg);d.setTextSize(1);
+    draw_text(d,s.failure!=secure::Failure::none?secure::failure_name(s.failure):"HOLD: BACK",120,demo?213:220);
+    if(demo){d.setTextColor(cyan,bg);draw_text(d,"DEMO",120,222);}
     present();
     return;
   }
@@ -393,7 +425,7 @@ void draw(const RadioState& state, Focus focus, bool connected, bool pairing,
     d.fillRoundRect(199, 91, 38, 64, 8, panel);
     d.drawRoundRect(3, 91, 38, 64, 8, trace_bright);
     d.drawRoundRect(199, 91, 38, 64, 8, trace_bright);
-    selector_icon(d, selected, 120, 103);
+    selector_icon(d, selected==devices_entry?Dashboard::settings:selected, 120, 103);
     selector_icon(d, prev, 22, 120, true);
     selector_icon(d, next, 218, 120, true);
     d.setTextColor(ink, panel);
