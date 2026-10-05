@@ -15,10 +15,14 @@ from PIL import Image, ImageDraw, ImageFont
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--port', default='COM14')
-parser.add_argument('--output', type=Path, default=Path('docs/screenshots'))
+parser.add_argument('--output', type=Path)
 parser.add_argument('--resume', action='store_true', help='Reuse complete PNGs from this same capture build only.')
 parser.add_argument('--only', help='Comma-separated screen slugs; write a separate output folder for a partial capture.')
 args = parser.parse_args()
+if args.only and (args.output is None or (args.output / 'manifest.json').exists()):
+    parser.error('--only requires an explicit --output folder without manifest.json')
+if args.output is None:
+    args.output = Path('docs/screenshots')
 args.output.mkdir(parents=True, exist_ok=True)
 (args.output / 'raw').mkdir(exist_ok=True)
 

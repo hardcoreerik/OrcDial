@@ -45,12 +45,12 @@ class Session {
   }
   bool pair(uint32_t now) {
     if(trust_.trusted || revocation_failed_) return false; // Failed deletion must be retried, never hidden by pairing.
-    clear();paused_=false;status_.state=State::searching;status_.failure=Failure::none;
+    clear(true);paused_=false;status_.state=State::searching;status_.failure=Failure::none;
     deadline_=now+60000;last_send_=now-1200;attempts_=0;
     if(!key_.generate(hooks_.random,hooks_.context,public_) || hooks_.random(hooks_.context,nonce_,16))return fail(Failure::invalid_key);
     return true;
   }
-  void cancel() {clear();status_.state=revocation_failed_?State::failed:paused_?State::paused:State::offline;status_.failure=revocation_failed_?Failure::storage:Failure::rejected;}
+  void cancel() {clear(true);status_.state=revocation_failed_?State::failed:paused_?State::paused:State::offline;status_.failure=revocation_failed_?Failure::storage:Failure::rejected;}
   bool confirm(uint32_t code,uint32_t now) {
     if(status_.state!=State::verify || code!=status_.code || expired(now,deadline_))return false;
     approved_=true;return send_approval(now);
@@ -71,14 +71,15 @@ class Session {
     if(status_.state==State::connected) {
       capture_notice_=true;const uint8_t command=1;send_data(&command,1,now);notice=cached_notice_;
     }
-    clear();paused_=true;status_.state=State::paused;
+    clear(notice.size!=0);paused_=true;status_.state=State::paused;notice_is_forget_=false;
     // Retry the already encrypted final notice, retaining no session keys.
     if(notice.size){cached_notice_=notice;notice_retries_=2;notice_at_=now;}
   }
   bool forget(uint32_t now) {
     Message notice{};
     if(status_.state==State::connected){capture_notice_=true;const uint8_t command=2;send_data(&command,1,now);notice=cached_notice_;}
-    clear();paused_=true;status_.state=State::paused;
+    if(notice.size)notice_is_forget_=true;
+    clear(notice.size!=0 || notice_is_forget_);paused_=true;status_.state=State::paused;
     if(notice.size){cached_notice_=notice;notice_retries_=2;notice_at_=now;}
     Trust next=trust_;next.trusted=false;next.boot_connect=false;next.upgrade=false;
     wipe(next.secret,32);wipe(next.peer_identity,16);wipe(next.peer_mac,6);
@@ -94,7 +95,7 @@ class Session {
   }
   void tick(uint32_t now) {
     if(notice_retries_ && uint32_t(now-notice_at_)>=350) {
-      hooks_.send(hooks_.context,peer_mac_,cached_notice_);--notice_retries_;notice_at_=now;
+      hooks_.send(hooks_.context,notice_mac_,cached_notice_);--notice_retries_;notice_at_=now;
     }
     if(status_.state==State::connected) {
       if(uint32_t(now-last_rx_)>5000) {connect(false,now);return;}
@@ -159,11 +160,12 @@ class Session {
     Message m{};m.role=role_;m.kind=kind;m.size=uint16_t(n);
     do {if(hooks_.random(hooks_.context,reinterpret_cast<uint8_t*>(&m.exchange),4))return fail(Failure::authentication);}while(!m.exchange);
     std::memcpy(m.data,p,n);last_send_=now;
-    if(capture_notice_ && kind==Kind::data)cached_notice_=m;
+    if(capture_notice_ && kind==Kind::data){cached_notice_=m;std::memcpy(notice_mac_,dest,6);}
     return hooks_.send(hooks_.context,dest,m);
   }
-  void clear() {
-    capture_notice_=false;notice_retries_=0;cached_notice_={};
+  void clear(bool keep_notice=false) {
+    capture_notice_=false;
+    if(!keep_notice){notice_retries_=0;cached_notice_={};notice_is_forget_=false;wipe(notice_mac_,6);}
     proof_sent_=false;proof_sent_at_=0;
     pair_receipt_=false;wipe(pair_receipt_data_,48);
     key_.clear();wipe(dh_,32);wipe(mac_key_,16);wipe(ltk_,16);wipe(pair_secret_,32);
@@ -171,7 +173,7 @@ class Session {
     have_public_=have_commit_=have_nonce_=approved_=peer_approved_=have_offer_=false;
     tx_sequence_=rx_sequence_=0;status_.code=0;
   }
-  bool fail(Failure f) {clear();status_.state=State::failed;status_.failure=f;return false;}
+  bool fail(Failure f) {clear(true);status_.state=State::failed;status_.failure=f;return false;}
   const uint8_t* first(const uint8_t* local,const uint8_t* peer)const{return role_==1?local:peer;}
   const uint8_t* second(const uint8_t* local,const uint8_t* peer)const{return role_==1?peer:local;}
   bool send_public(uint32_t now) {uint8_t p[81];std::memcpy(p,trust_.identity,16);std::memcpy(p+16,public_,65);return emit(Kind::public_key,p,81,peer_mac_,now);}
@@ -281,6 +283,8 @@ class Session {
   uint8_t public_[65]{},peer_public_[65]{},nonce_[16]{},peer_nonce_[16]{},dh_[32]{},commit_[16]{},mac_key_[16]{},ltk_[16]{},pair_secret_[32]{};
   uint8_t tx_key_[32]{},rx_key_[32]{},session_[8]{};
   uint8_t pair_receipt_data_[48]{};
+  bool notice_is_forget_=false;
+  uint8_t notice_mac_[6]{};
   Message cached_notice_{};bool capture_notice_=false;uint8_t notice_retries_=0;uint32_t notice_at_=0;
   bool proof_sent_=false;uint32_t proof_sent_at_=0;
   bool pair_receipt_=false,paused_=false,explicit_=false,peer_explicit_=false,have_public_=false,have_commit_=false,have_nonce_=false,approved_=false,peer_approved_=false,have_offer_=false;

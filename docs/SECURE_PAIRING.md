@@ -36,6 +36,11 @@ The shared headers under `src/control/secure_*` implement:
 - A low-priority worker for crypto/storage/fragments. Radio callbacks enqueue;
   the tablet's existing Hosted TX task isolates slow RPCs from UI/DSP.
 
+Fragment retirement remembers eight recent exchange IDs for up to two seconds.
+It reduces disruption from delayed fragments; it is not authentication or a
+comprehensive defense against wireless denial of service. Authenticated session
+counters reject replay before controls are applied.
+
 ## Local USB commands
 
 Use `ORCDIAL_` on the Dial or `RTL_ORCDIAL_` on the tablet:
@@ -60,11 +65,14 @@ so it must be retried before restarting.
 ## Verification and rollout
 
 ```
-cmake -S tests -B .pio/security-tests -DMBEDTLS_SOURCE_DIR=<mbedtls-source>
+cmake -S tests -B .pio/security-tests -DMBEDTLS_SOURCE_DIR=<mbedtls-3.6-LTS-source>
 cmake --build .pio/security-tests --config Debug --target runtime_test security_test protocol_test controller_test
 ctest --test-dir .pio/security-tests -C Debug --output-on-failure
 pio run -e dial
 ```
+
+Host tests require Mbed TLS 3.6 LTS (validated with 3.6.5); CMake rejects
+other source versions. Assertions remain enabled in every build configuration.
 
 Host tests include published CMAC/Bluetooth/GCM vectors; both approvals; invalid
 keys; cancellation, timeout, restart and storage failure; dropped/duplicate

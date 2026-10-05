@@ -2,7 +2,7 @@
 
 Captured from the M5Dial using the production UI renderer. These are documentation previews, not proof of live RF reception or implementation of every dashboard action. Boot and offline states retain their normal labels; other previews are marked DEMO. The connected/paired live status is not simulated.
 
-Each image is 240 × 240. Transparent corners match the round display; `raw/` preserves unmasked framebuffer captures. The manifest records commands and hashes. Animation is captured as a single frame, not an animation recording.
+Each image is 240 Ã— 240. Transparent corners match the round display; `raw/` preserves unmasked framebuffer captures. The manifest records commands and hashes. Animation is captured as a single frame, not an animation recording.
 
 ## Primary
 

@@ -170,7 +170,7 @@ static void poll_serial_commands() {
         local.view = content;
         orc::draw(local, orc::Focus(f), false, pairing, demo, orc::View(v), local.dashboard,
                   pending, false, 0, orc::TuneStyle(style));
-        orc::capture_frame(v == unsigned(orc::View::connection));
+        orc::capture_frame(false);
       }
     } else if (!std::strcmp(command, "ORCDIAL_DOC_EXIT")) {
       documentation_active = false;
@@ -270,6 +270,7 @@ void loop() {
   static orc::Dashboard last_dashboard = orc::Dashboard::home;
   if (online && state.dashboard != last_dashboard) {
     pending_delta = 0;
+    focus = orc::Focus::vfo;
     tune_style = style_for(state.dashboard);
     if (view != orc::View::carousel && view != orc::View::connection)
       view = state.dashboard == orc::Dashboard::home ? orc::View::home : orc::View::dashboard;

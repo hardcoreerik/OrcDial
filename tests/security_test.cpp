@@ -35,18 +35,39 @@ void fragments(){
   Message m{},got{};m.role=1;m.exchange=7;m.kind=Kind::data;m.size=192;for(int i=0;i<192;++i)m.data[i]=uint8_t(i);
   uint8_t f[4][64];for(int i=0;i<4;++i)assert(fragment(m,i,f[i]));Reassembly r;
   assert(!r.push(f[2],64,1,got));assert(!r.push(f[0],64,2,got));assert(!r.push(f[0],64,3,got));assert(!r.push(f[3],64,4,got));assert(r.push(f[1],64,5,got));assert(equal(got.data,m.data,192));
+  m.exchange=70;for(int i=0;i<4;++i)assert(fragment(m,i,f[i]));
   assert(!r.push(f[0],63,10,got));f[0][4]=3;assert(!r.push(f[0],64,10,got));f[0][4]=4;
   f[0][13]=1;assert(!r.push(f[0],64,10,got));f[0][13]=0;
   assert(!r.push(f[0],64,10,got));f[0][16]^=1;assert(!r.push(f[0],64,11,got));assert(!r.active());
-  f[0][16]^=1;assert(!r.push(f[0],64,20,got));r.expire(2021);assert(!r.active());
+  m.exchange=71;for(int i=0;i<4;++i)assert(fragment(m,i,f[i]));
+  assert(!r.push(f[0],64,20,got));r.expire(2021);assert(!r.active());
+  // Drop one fragment, then recover immediately on the next complete exchange.
+  m.size=81;m.exchange=8;assert(fragment(m,0,f[0]));assert(!r.push(f[0],64,2100,got));
+  uint8_t delayed[64];assert(fragment(m,1,delayed));
+  m.exchange=9;assert(fragment(m,0,f[0]));assert(fragment(m,1,f[1]));
+  assert(!r.push(f[0],64,2200,got));assert(!r.push(delayed,64,2201,got));
+  assert(r.push(f[1],64,2202,got));assert(got.exchange==9);
+  // Changed metadata within the same exchange still cannot mix messages.
+  m.exchange=10;assert(fragment(m,0,f[0]));assert(fragment(m,1,f[1]));
+  assert(!r.push(f[0],64,2300,got));f[1][5]=uint8_t(Kind::proof);
+  assert(!r.push(f[1],64,2301,got));f[1][5]=uint8_t(Kind::data);
+  assert(r.push(f[1],64,2302,got));
+  // A conflicting duplicate retires its exchange before a successor starts.
+  m.exchange=11;assert(fragment(m,0,f[0]));assert(fragment(m,1,delayed));
+  assert(!r.push(f[0],64,2400,got));f[0][16]^=1;assert(!r.push(f[0],64,2401,got));
+  m.exchange=12;assert(fragment(m,0,f[0]));assert(fragment(m,1,f[1]));
+  assert(!r.push(f[0],64,2402,got));assert(!r.push(delayed,64,2403,got));
+  assert(r.push(f[1],64,2404,got));assert(got.exchange==12);
+
+
 }
 struct Node;
 struct Flight {Node* from;uint8_t dest[6];Message m;};
 std::deque<Flight> flights;
 struct Node {
-  uint8_t role,mac[6]{};Trust saved{};std::unique_ptr<Session> session;std::mt19937 rng;bool storage_ok=true;int delivered=0;std::string payload;
+  uint8_t role,mac[6]{};Trust saved{};std::unique_ptr<Session> session;std::mt19937 rng;bool storage_ok=true,entropy_ok=true;int delivered=0;std::string payload;
   Node(uint8_t r):role(r),rng(r){mac[5]=r;saved.identity[15]=r;restart();}
-  static int random(void* c,unsigned char* p,size_t n){auto& a=*static_cast<Node*>(c);for(size_t i=0;i<n;++i)p[i]=uint8_t(a.rng());return 0;}
+  static int random(void* c,unsigned char* p,size_t n){auto& a=*static_cast<Node*>(c);if(!a.entropy_ok)return -1;for(size_t i=0;i<n;++i)p[i]=uint8_t(a.rng());return 0;}
   static bool send(void* c,const uint8_t* mac,const Message& m){Flight f{};f.from=static_cast<Node*>(c);std::memcpy(f.dest,mac,6);f.m=m;flights.push_back(f);return true;}
   static bool save(void* c,const Trust& t){auto& a=*static_cast<Node*>(c);if(!a.storage_ok)return false;a.saved=t;return true;}
   static void deliver(void* c,const uint8_t* p,size_t n){auto& a=*static_cast<Node*>(c);++a.delivered;a.payload.assign(reinterpret_cast<const char*>(p),n);}
@@ -87,6 +108,51 @@ void scenarios(){
   forgetter.session->confirm(forgetter.session->status().code,2000);forgotten.session->confirm(forgotten.session->status().code,2000);pump(forgetter,forgotten,2000);run(forgetter,forgotten,2000,4000);
   assert(forgetter.session->forget(4000));flights.clear();run(forgetter,forgotten,4100,5500);
   assert(!forgetter.saved.trusted && !forgotten.saved.trusted);
+  // Retain Forget ciphertext retries through immediate Pair and failed storage.
+  for(bool failed_storage : {false,true}) {
+    Node revoker(1),old_peer(2);pairing(revoker,old_peer);
+    revoker.session->confirm(revoker.session->status().code,2000);old_peer.session->confirm(old_peer.session->status().code,2000);
+    pump(revoker,old_peer,2000);run(revoker,old_peer,2000,4000);
+    revoker.storage_ok=!failed_storage;assert(revoker.session->forget(4000)==!failed_storage);
+    flights.clear(); // lose the first encrypted notice
+    if(!failed_storage) {
+      assert(revoker.session->pair(4001));
+      uint8_t candidate_mac[6]={0,0,0,0,0,9};Message discover{};
+      discover.role=2;discover.kind=Kind::discover;discover.exchange=99;discover.size=16;discover.data[15]=9;
+      revoker.session->receive(candidate_mac,discover,4100); // changes the pairing candidate MAC
+    }
+    run(revoker,old_peer,4200,5500);
+    assert(!old_peer.saved.trusted);
+    if(failed_storage)assert(revoker.session->status().failure==Failure::storage);
+  }
+  // Failure to generate Pair keys must not cancel the prior Forget notification.
+  Node keyfail(1),notify_peer(2);pairing(keyfail,notify_peer);
+  keyfail.session->confirm(keyfail.session->status().code,2000);notify_peer.session->confirm(notify_peer.session->status().code,2000);
+  pump(keyfail,notify_peer,2000);run(keyfail,notify_peer,2000,4000);
+  assert(keyfail.session->forget(4000));flights.clear();keyfail.entropy_ok=false;
+  assert(!keyfail.session->pair(4001));run(keyfail,notify_peer,4200,5500);assert(!notify_peer.saved.trusted);
+  // Once already disconnected, Forget must not send an obsolete Disconnect notice.
+  Node offline(1),still_trusted(2);pairing(offline,still_trusted);
+  offline.session->confirm(offline.session->status().code,2000);still_trusted.session->confirm(still_trusted.session->status().code,2000);
+  pump(offline,still_trusted,2000);run(offline,still_trusted,2000,4000);
+  offline.session->disconnect(4000);flights.clear();assert(offline.session->forget(4001));
+  offline.session->tick(4500);assert(flights.empty());assert(!offline.saved.trusted);
+  // A lost Forget frame recovers even when new pairing discovery arrives first.
+  Node partial(1),receiver(2);pairing(partial,receiver);
+  partial.session->confirm(partial.session->status().code,2000);receiver.session->confirm(receiver.session->status().code,2000);
+  pump(partial,receiver,2000);run(partial,receiver,2000,4000);
+  assert(partial.session->forget(4000));const Message first_notice=flights.front().m;flights.clear();
+  Reassembly receiver_assembly;Message assembled{};uint8_t frame[64];
+  assert(first_notice.size<=fragment_payload); // teardown notices occupy one frame
+  // Drop that whole frame; discovery is the first one the receiver sees.
+  assert(partial.session->pair(4001));partial.session->tick(4001);
+  const Message discovery=flights.front().m;flights.clear();assert(fragment(discovery,0,frame));
+  assert(receiver_assembly.push(frame,64,4001,assembled));receiver.session->receive(partial.mac,assembled,4001);
+  partial.session->tick(4500);const Message retry_notice=flights.front().m;flights.clear();
+  assert(retry_notice.exchange==first_notice.exchange && retry_notice.size==first_notice.size);
+  assert(equal(retry_notice.data,first_notice.data,first_notice.size));
+  assert(fragment(retry_notice,0,frame));assert(receiver_assembly.push(frame,64,4501,assembled));
+  receiver.session->receive(partial.mac,assembled,4501);assert(!receiver.saved.trusted);flights.clear();
   Node c(1),d(2);pairing(c,d);c.session->cancel();run(c,d,2000,62000);assert(!c.saved.trusted&&!d.saved.trusted);
   Node e(1),f(2);pairing(e,f);e.restart();run(e,f,2000,62000);assert(!e.saved.trusted&&!f.saved.trusted);
   Node g(1),h(2);pairing(g,h);g.storage_ok=false;assert(g.session->confirm(g.session->status().code,2000));assert(h.session->confirm(h.session->status().code,2000));pump(g,h,2000);assert(g.session->status().state==State::failed);assert(!g.saved.trusted);run(g,h,2000,24000);assert(h.session->status().state!=State::connected);

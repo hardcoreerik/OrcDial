@@ -26,13 +26,13 @@ inline bool fragment(const Message& m, uint8_t index, uint8_t out[frame_size]) {
   const size_t length=m.size-offset<fragment_payload?m.size-offset:fragment_payload;
   out[15]=uint8_t(length); std::memcpy(out+16,m.data+offset,length);return true;
 }
-// One bounded assembly. An unrelated exchange cannot evict an active one.
+// One bounded assembly. A new exchange from the pinned peer replaces an abandoned one.
 // Caller pins the peer MAC too; no allocation or work proportional to attacker input.
 class Reassembly {
  public:
-  void reset() { mask_=0; started_=0; message_={}; }
+  void reset() {clear_message();for(auto& entry:retired_)entry={};next_retired_=0;}
   bool active() const { return mask_!=0; }
-  void expire(uint32_t now) {if(active() && uint32_t(now-started_)>2000)reset();}
+  void expire(uint32_t now) {if(active() && uint32_t(now-started_)>2000){retire(message_.exchange,now);clear_message();}}
   bool push(const uint8_t* f,size_t n,uint32_t now,Message& out) {
     expire(now);
     if(!f || n!=frame_size || std::memcmp(f,"ODS4",4) || f[4]!=wire_version ||
@@ -42,15 +42,22 @@ class Reassembly {
     const size_t offset=f[7]*fragment_payload,length=size-offset<fragment_payload?size-offset:fragment_payload;
     if(f[15]!=length) return false;
     for(size_t i=16+length;i<frame_size;++i) if(f[i]) return false;
+    const uint32_t exchange=u32(f+8);
+    for(const auto& entry:retired_)if(entry.exchange==exchange && uint32_t(now-entry.at)<=2000)return false;
+    if(active() && message_.exchange!=exchange){retire(message_.exchange,now);clear_message();}
     if(!active()) { message_.kind=Kind(f[5]);message_.role=f[6];message_.exchange=u32(f+8);message_.size=uint16_t(size);started_=now; }
     if(message_.exchange!=u32(f+8) || message_.role!=f[6] || uint8_t(message_.kind)!=f[5] || message_.size!=size) return false;
     const uint8_t bit=uint8_t(1u<<f[7]);
-    if(mask_&bit) { if(!equal(message_.data+offset,f+16,length)) reset();return false; }
+    if(mask_&bit) { if(!equal(message_.data+offset,f+16,length)){retire(message_.exchange,now);clear_message();}return false; }
     std::memcpy(message_.data+offset,f+16,length);mask_|=bit;
     if(mask_!=uint8_t((1u<<count)-1)) return false;
-    out=message_;reset();return true;
+    out=message_;retire(message_.exchange,now);clear_message();return true;
   }
  private:
+  void clear_message(){mask_=0;started_=0;message_={};}
+  void retire(uint32_t exchange,uint32_t now){retired_[next_retired_]={exchange,now};next_retired_=(next_retired_+1)%8;}
+  struct Retired {uint32_t exchange=0,at=0;};
+  Retired retired_[8]{};uint8_t next_retired_=0;
   Message message_{};uint8_t mask_=0;uint32_t started_=0;
 };
 } // namespace orc::secure

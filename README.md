@@ -63,7 +63,9 @@ python tests/serial_smoke.py --port COM14
 python tests/host_probe.py --port COM17
 ```
 
-These scripts require attached hardware. The Dial smoke test starts discovery and exercises command parsing without tuning. The host probe opens the Tab5 pairing window and queues discovery; it does not prove RF delivery or pairing and does not flash firmware. Stop any monitor using the same port first.
+These version-4 scripts require attached hardware. They check status and command parsing without opening pairing, changing trust, tuning or flashing. Stop any monitor using the same port first. A status response alone does not prove RF delivery or pairing.
+
+Run the repeatable [regression and release checks](docs/RELEASE_CHECKS.md) with `python tools/release_check.py --mbedtls-source <mbedtls-3.6-source>`. It builds and tests Debug/Release host programs, capture safeguards, Devices images, and both Dial firmware configurations, saving logs and JSON/Markdown results. Add `--hardware` to record the acceptance checklist after flashing; skipped checks remain incomplete.
 
 The small native C++ assertion programs are `tests/protocol_test.cpp` and `tests/controller_test.cpp`; they need a C++17 host compiler. [PROTOCOL.md](PROTOCOL.md) documents the version-4 encrypted control payload.
 

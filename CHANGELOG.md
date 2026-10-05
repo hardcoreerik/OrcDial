@@ -2,6 +2,15 @@
 
 ## Unreleased — Devices and secure pairing
 
+- Fix CodeRabbit findings: recover from dropped fragments without immediately
+  returning to a retired exchange, retain encrypted Forget retries across
+  re-pairing and failures, reset focus on receiver dashboard changes, and avoid
+  duplicate DEMO labels. Protect existing screenshot manifests from partial
+  captures and correct gallery text encoding.
+- Keep assertions enabled in Release host tests; require Mbed TLS 3.6 LTS
+  sources and validate version rejection. Add packet-reordering, revocation,
+  key-generation failure and transport-level notification regressions.
+
 - Review repairs: release failed initialization resources, preserve ordered local
   actions, block replacement pairing after failed revocation, and retry encrypted
   Forget notices. Tab5 serial mutations require authentication and storage errors
