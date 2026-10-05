@@ -3,6 +3,7 @@
 #include <M5Dial.h>
 #include <cstdlib>
 #include <cstring>
+#include <cstdio>
 #include <esp_wifi.h>
 
 // Set to 1 for a labeled local-only display during bench demonstrations.
@@ -20,6 +21,9 @@ static uint32_t last_turn_ms = 0, press_ms = 0, last_draw_ms = 0;
 static uint32_t last_status_ms = 0;
 static int32_t reel_position = 0;
 static bool touch_down = false;
+#ifdef ORCDIAL_DOC_CAPTURE
+static bool documentation_active = false;
+#endif
 static orc::View view = orc::View::home;
 static int selected_index = 0;
 static orc::TuneStyle style_for(orc::Dashboard id) {
@@ -114,6 +118,34 @@ static void poll_serial_commands() {
     }
     command[length] = '\0';
     if (overflow) Serial.println("ORCDIAL_COMMAND_ERROR too_long");
+    #ifdef ORCDIAL_DOC_CAPTURE
+    else if (!std::strcmp(command, "ORCDIAL_DOC_BOOT")) {
+      documentation_active = true;
+      orc::capture_splash();
+    } else if (!std::strncmp(command, "ORCDIAL_DOC_SHOW ", 17)) {
+      unsigned v, id, style, f, content, pairing, demo, pending;
+      char trailing;
+      if (std::sscanf(command + 17, "%u %u %u %u %u %u %u %u %c",
+                      &v, &id, &style, &f, &content, &pairing, &demo, &pending, &trailing) != 8 ||
+          v > 3 || !orc::valid_dashboard(id) || style >= unsigned(orc::TuneStyle::count) ||
+          f > unsigned(orc::Focus::volume) || content > 4 || pairing > 1 || demo > 1 || pending > 1) {
+        Serial.println("ORCDIAL_DOC_ERROR invalid_arguments");
+      } else {
+        documentation_active = true;
+        local = orc::RadioState{};
+        local.dashboard = orc::Dashboard(id);
+        preview_band(local.dashboard);
+        local.view = content;
+        orc::draw(local, orc::Focus(f), false, pairing, demo, orc::View(v), local.dashboard,
+                  pending, false, 0, orc::TuneStyle(style));
+        orc::capture_frame(v == unsigned(orc::View::connection));
+      }
+    } else if (!std::strcmp(command, "ORCDIAL_DOC_EXIT")) {
+      documentation_active = false;
+      view = orc::View::home;
+      Serial.println("ORCDIAL_DOC_EXIT_DONE");
+    }
+    #endif
     else if (!std::strcmp(command, "ORCDIAL_RESTART")) {
       Serial.println("ORCDIAL_RESTARTING"); Serial.flush(); ESP.restart();
     } else if (!std::strcmp(command, "ORCDIAL_PAIR START")) {
@@ -185,6 +217,9 @@ void setup() {
 void loop() {
   M5Dial.update();
   poll_serial_commands();
+#ifdef ORCDIAL_DOC_CAPTURE
+  if (documentation_active) { delay(5); return; }
+#endif
   if (!ORCDIAL_DEMO) radio_link.poll();
   const bool online = !ORCDIAL_DEMO && radio_link.connected();
   const orc::RadioState& state = online ? radio_link.state() : local;
