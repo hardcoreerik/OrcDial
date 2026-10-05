@@ -1,2 +1,57 @@
 # OrcDial
-Optional M5Stack M5Dial accessory for OrcSDR: dashboard-aware VFO and controls over ESP-NOW.
+
+OrcDial is an optional M5Stack M5Dial accessory for [OrcSDR](https://github.com/hardcoreerik/OrcSDR). It uses the encoder, button, touch display, and ESP-NOW to follow the active OrcSDR dashboard and control supported radio functions. OrcSDR remains usable without a Dial.
+
+This repository owns the **M5Dial firmware**, dashboard graphics, controller/protocol code, tests, and future Dial releases. Tab5 pairing/settings, the receiver bridge, and the C6 radio relay remain in OrcSDR. See [the import record](docs/IMPORT.md) for the exact source snapshot and repository boundary.
+
+## Build and flash
+
+Install PlatformIO Core or the PlatformIO IDE extension. From this repository's root:
+
+```sh
+pio run -e dial
+pio run -e dial -t upload --upload-port COM14
+pio device monitor -p COM14 -b 115200
+```
+
+Replace COM14 with your Dial's port. Platform, board, and library versions are pinned in [platformio.ini](platformio.ini). A build produces `.pio/build/dial/firmware.bin`; that application image alone is not a complete first-install or M5Burner package. No release or M5Burner listing has been published by this import.
+
+## Display and controls
+
+- Five-second Orc badge splash, OrcSDR Home, and a side carousel with illustrated dashboard pictures.
+- Dashboard-aware tuning views, including Reel, Dial, Odometer, Tape, and Split frequency graphics.
+- Rotate to browse dashboards; press to open one. On a tuner, rotate to change the focused control and press to cycle frequency, step, gain, and volume where supported.
+- The receiver owns the actual radio state. The Dial shows acknowledged state and labels disconnected previews OFFLINE.
+
+Supported and pending receiver actions are recorded in [the control matrix](docs/ORCDIAL_CONTROL_MATRIX.md). A visible dashboard does not imply every action is implemented.
+
+## Pairing
+
+Use a compatible OrcSDR build with the current ESP-NOW receiver integration. On the Tab5, open Settings → Companion and tap CONNECT ORCDIAL or RE-PAIR ORCDIAL. On Dial Home, hold the encoder for four seconds to search, or use its Connect screen. Both sides save the peer address. After pairing, the Dial searches at startup; the Tab5 enables the accessory bridge after its startup splash and router association settle.
+
+ESP-NOW is the only current Dial transport. Router Wi-Fi and ESP-NOW must use the same channel when sharing the Tab5 radio; the latest bench checks used channel 11. The tested receiver integration uses OrcSDR's custom C6 relay. Ordinary Wi-Fi support by itself does not establish that a stock C6 image exposes this relay. Do not assume an older OrcSDR release is compatible or install C6 firmware from this repository.
+
+**Pairing currently uses saved MAC addresses without encryption or cryptographic authentication.** It is a prototype connection mechanism, not a production trust boundary.
+
+## USB diagnostics and tests
+
+Dial commands include `ORCDIAL_STATUS`, `ORCDIAL_PAIR START`, `ORCDIAL_RESTART`, `ORCDIAL_DASHBOARD <id>`, `ORCDIAL_FOCUS NEXT`, and `ORCDIAL_ROTATE <delta>`. Status includes link, channel, dashboard, frequency, acknowledgment, pending-command state, and transport. A queued response is not proof that OrcSDR applied an action.
+
+```sh
+python tests/serial_smoke.py --port COM14
+python tests/host_probe.py --port COM17
+```
+
+These scripts require attached hardware. The Dial smoke test starts discovery and exercises command parsing without tuning. The host probe opens the Tab5 pairing window and queues discovery; it does not prove RF delivery or pairing and does not flash firmware. Stop any monitor using the same port first.
+
+The small native C++ assertion programs are `tests/protocol_test.cpp` and `tests/controller_test.cpp`; they need a C++17 host compiler. [PROTOCOL.md](PROTOCOL.md) documents the 64-byte version-3 wire format.
+
+## Validation and limits
+
+The imported snapshot was built and flashed during OrcSDR integration work. Serial checks covered initial pairing, automatic reconnection after restarts, dashboard synchronization, and acknowledged FM tuning with router Wi-Fi connected. Active audio and IQ counters reported zero drops in those bounded checks. This is not a claim of prolonged stability, offline-router recovery, channel-change acceptance, or audible sound-quality verification. One earlier receiver build experienced a watchdog reset whose exact cause was not established.
+
+Import/build validation in this repository is separate from flashing or testing this new checkout on hardware. Publishing source here does not create a firmware release.
+
+## License and artwork
+
+The imported project preserves OrcSDR's [GNU Affero General Public License v3](LICENSE). Dependency licenses remain their own. Dashboard source artwork and generation notes are retained in [art/README.md](art/README.md).

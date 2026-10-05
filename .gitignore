@@ -1,0 +1,7 @@
+.pio/
+logs/
+__pycache__/
+*.pyc
+.vscode/
+tests/*.obj
+tests/*.exe
