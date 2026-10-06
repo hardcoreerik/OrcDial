@@ -101,8 +101,9 @@ static void act(orc::Action action, bool online) {
   using K = orc::ActionKind;
   if (action.kind == K::none) return;
   if (online) {
-    if (!radio_link.command_action(action) && action.kind == K::tune &&
-        !radio_link.pending()) pending_delta += action.value;
+    // Keep detents that arrive while a command is pending; the flush in loop() sends the sum once it is acknowledged.
+    if (!radio_link.command_action(action) && action.kind == K::tune)
+      pending_delta += action.value;
     return;
   }
   switch (action.kind) {
