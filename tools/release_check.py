@@ -31,23 +31,37 @@ def main():
     parser.add_argument('--build-dir', type=Path, default=ROOT / '.pio/release-check-host')
     parser.add_argument('--pio', default='pio', help='PlatformIO executable.')
     parser.add_argument('--hardware', action='store_true', help='Record operator-observed acceptance; does not operate devices.')
+    parser.add_argument('--command-timeout', type=int, default=900, help='Maximum seconds per build/test process (default: 900).')
     args = parser.parse_args()
+    if args.command_timeout <= 0:
+        parser.error('--command-timeout must be positive')
     stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
     output = ROOT / '.pio/release-checks' / stamp
     output.mkdir(parents=True)
     def git(*cmd):
-        return subprocess.check_output(['git', *cmd], cwd=ROOT, text=True).strip()
-    report = {'utc': stamp, 'commit': git('rev-parse', 'HEAD'),
-              'dirty': bool(git('status', '--porcelain')), 'checks': [], 'hardware': [],
+        return subprocess.check_output(['git', *cmd], cwd=ROOT, text=True, timeout=30).strip()
+    report = {'utc': stamp, 'commit': None,
+              'dirty': None, 'checks': [], 'hardware': [],
               'release_gates': {'independent_security_review': 'NOT VERIFIED BY THIS SUITE'}}
+    try:
+        report['commit'] = git('rev-parse', 'HEAD')
+        report['dirty'] = bool(git('status', '--porcelain'))
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
+        log = output / 'git-metadata.log'
+        log.write_text(str(error), encoding='utf-8')
+        report['checks'].append({'name': 'git-metadata', 'command': ['git'], 'result': 'FAIL', 'exit': 1, 'log': str(log)})
 
     def run(name, command):
         log = output / (name + '.log')
         print(f'Running {name}: {subprocess.list2cmdline(command)}', flush=True)
         try:
             with log.open('w', encoding='utf-8') as stream:
-                result = subprocess.run(command, cwd=ROOT, stdout=stream, stderr=subprocess.STDOUT)
+                result = subprocess.run(command, cwd=ROOT, stdout=stream, stderr=subprocess.STDOUT, timeout=args.command_timeout)
             code = result.returncode
+        except subprocess.TimeoutExpired:
+            with log.open('a', encoding='utf-8') as stream:
+                stream.write(f'\nTIMEOUT after {args.command_timeout} seconds\n')
+            code = 124
         except OSError as error:
             log.write_text(str(error), encoding='utf-8')
             code = 127
@@ -55,13 +69,15 @@ def main():
         print(f'{name}: {report["checks"][-1]["result"]}', flush=True)
         return code == 0
 
-    config = ['cmake', '-S', 'tests', '-B', str(args.build_dir)]
-    if args.mbedtls_source:
-        config.append('-DMBEDTLS_SOURCE_DIR=' + str(args.mbedtls_source.resolve()))
-    if run('configure', config):
-        for mode in ('Debug', 'Release'):
-            if run('build-' + mode, ['cmake', '--build', str(args.build_dir), '--config', mode]):
-                run('test-' + mode, ['ctest', '--test-dir', str(args.build_dir), '-C', mode, '--output-on-failure'])
+    for mode in ('Debug', 'Release'):
+        build = args.build_dir / mode
+        config = ['cmake', '-S', 'tests', '-B', str(build), '-DCMAKE_BUILD_TYPE=' + mode]
+        if args.mbedtls_source:
+            config.append('-DMBEDTLS_SOURCE_DIR=' + str(args.mbedtls_source.resolve()))
+        if run('configure-' + mode, config):
+            if run('build-' + mode, ['cmake', '--build', str(build), '--config', mode]):
+                run('test-' + mode, ['ctest', '--test-dir', str(build), '-C', mode, '--output-on-failure'])
+    run('runner-regressions', [sys.executable, '-m', 'unittest', 'discover', '-s', 'tests', '-p', 'test_release_check.py'])
     run('capture-guards', [sys.executable, '-m', 'unittest', 'discover', '-s', 'tests', '-p', 'test_capture_guards.py'])
     run('devices-captures', [sys.executable, 'tools/validate_captures.py', 'docs/screenshots/devices'])
     run('production-firmware', [args.pio, 'run', '-e', 'dial'])

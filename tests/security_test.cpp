@@ -126,6 +126,15 @@ void scenarios(){
     if(failed_storage)assert(revoker.session->status().failure==Failure::storage);
   }
   // Failure to generate Pair keys must not cancel the prior Forget notification.
+  // Disconnect after a lost Forget notice must not cancel revocation delivery.
+  Node forgotten_then_stopped(1),stale_peer(2);pairing(forgotten_then_stopped,stale_peer);
+  forgotten_then_stopped.session->confirm(forgotten_then_stopped.session->status().code,2000);
+  stale_peer.session->confirm(stale_peer.session->status().code,2000);
+  pump(forgotten_then_stopped,stale_peer,2000);run(forgotten_then_stopped,stale_peer,2000,4000);
+  assert(forgotten_then_stopped.session->forget(4000));flights.clear();
+  forgotten_then_stopped.session->disconnect(4100);
+  run(forgotten_then_stopped,stale_peer,4200,6000);
+  assert(!stale_peer.saved.trusted);
   Node keyfail(1),notify_peer(2);pairing(keyfail,notify_peer);
   keyfail.session->confirm(keyfail.session->status().code,2000);notify_peer.session->confirm(notify_peer.session->status().code,2000);
   pump(keyfail,notify_peer,2000);run(keyfail,notify_peer,2000,4000);
