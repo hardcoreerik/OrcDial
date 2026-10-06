@@ -2,6 +2,17 @@
 
 ## Unreleased — Devices and secure pairing
 
+- Fix intermittent boot-time connection failures: a channel lock now holds only while the peer
+  acknowledges unicast frames (a valid offer heard on a neighbouring channel no longer pins the Dial to
+  the wrong channel), the Dial remembers and tries its last working channel first, and a timed-out
+  connect is retried up to six times with increasing delay on both devices. Disconnect, Forget, Cancel
+  and pairing clear the retry intent. The policy lives in `src/control/link_policy.hpp` with host tests.
+- Show link state on the outermost ring of every screen: green when linked, red when offline
+  (previously green or cyan regardless of state on several screens).
+- Add radio diagnostics: `ORCDIAL_RF` (send, acknowledgement and per-channel counters),
+  `ORCDIAL_RF RESET`, `ORCDIAL_RF TRACE 0|1|2`, and security state, failure and channel on the periodic
+  status line.
+
 - Fix CodeRabbit findings: recover from dropped fragments without immediately
   returning to a retired exchange, retain encrypted Forget retries across
   re-pairing and failures, reset focus on receiver dashboard changes, and avoid

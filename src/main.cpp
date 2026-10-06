@@ -228,6 +228,12 @@ static void poll_serial_commands() {
         else if (!radio_link.command_action(action)) Serial.println("ORCDIAL_CONTROL_ERROR busy");
         else Serial.printf("ORCDIAL_CONTROL_QUEUED action=%u value=%ld seq=%lu\n", unsigned(action.kind), long(action.value), (unsigned long)radio_link.pending_sequence());
       }
+    } else if (!std::strcmp(command, "ORCDIAL_RF")) {
+      radio_link.rf_report();
+    } else if (!std::strcmp(command, "ORCDIAL_RF RESET")) {
+      radio_link.rf_reset(); Serial.println("ORCDIAL_RF_RESET_OK");
+    } else if (!std::strncmp(command, "ORCDIAL_RF TRACE ", 17) && (command[17]=='0'||command[17]=='1'||command[17]=='2') && !command[18]) {
+      radio_link.rf_trace(uint8_t(command[17]-'0')); Serial.println("ORCDIAL_RF_TRACE_OK");
     } else if (!std::strcmp(command, "ORCDIAL_STATUS")) {
       const auto security=radio_link.security_status();
       Serial.printf("ORCDIAL_SECURITY trust=%d connection=%s boot=%d failure=%s code=%06lu protocol=4\n",security.trusted,orc::secure::state_name(security.state),security.boot_connect,orc::secure::failure_name(security.failure),(unsigned long)security.code);
@@ -350,8 +356,11 @@ void loop() {
     last_draw_ms = millis();
   }
   if (millis() - last_status_ms >= 5000) {
-    Serial.printf("ORCDIAL_STATUS link=%s freq=%lu\n", online ? "LINKED" : "OFFLINE",
-                  (unsigned long)state.frequency_hz);
+    const auto security = radio_link.security_status();
+    Serial.printf("ORCDIAL_STATUS link=%s freq=%lu sec=%s failure=%s locked=%d ch=%u\n", online ? "LINKED" : "OFFLINE",
+                  (unsigned long)state.frequency_hz, orc::secure::state_name(security.state),
+                  orc::secure::failure_name(security.failure), security.channel_locked ? 1 : 0,
+                  unsigned(radio_link.channel()));
     last_status_ms = millis();
   }
   delay(5);

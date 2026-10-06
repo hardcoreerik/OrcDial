@@ -46,7 +46,7 @@ static const DashboardImage dashboard_images[] = {
 static_assert(sizeof(dashboard_images) / sizeof(dashboard_images[0]) ==
               static_cast<unsigned>(Dashboard::am) + 1);
 static constexpr uint32_t ink = 0xe8f5f6, dim = 0x88a4ad, green = 0x70f847;
-static constexpr uint32_t bg = 0x050f16, cyan = 0x38d9ff, blue = 0x319bff;
+static constexpr uint32_t bg = 0x050f16, cyan = 0x38d9ff, blue = 0x319bff, red = 0xff4a4a;
 static constexpr uint32_t panel = 0x0c202b, trace = 0x163747, trace_bright = 0x286174;
 // Text must fit the circle at both its top and bottom, not just the square LCD.
 // Optional width also keeps digits inside their individual control boxes.
@@ -68,6 +68,8 @@ static void draw_text(lgfx::LGFXBase& d, const char* text, int x, int y, int wid
 static M5Canvas frame(&M5Dial.Display);
 static bool frame_attempted = false, frame_ready = false;
 static void present() { if (frame_ready) frame.pushSprite(0, 0); }
+// The outermost ring shows link state on every screen: green when linked, red when offline.
+static uint32_t link_color(bool connected) { return connected ? green : red; }
 static uint32_t accent_for(Dashboard id, bool connected) {
   if (!connected) return cyan;
   if (id == Dashboard::am || id == Dashboard::cb || id == Dashboard::satellite) return blue;
@@ -97,7 +99,7 @@ static void frequency(lgfx::LGFXBase& d, uint32_t hz, int y, int size, uint32_t 
 static void fm_screen(lgfx::LGFXBase& d, const RadioState& state, Focus focus,
                       bool connected, bool pairing, bool demo, bool pending,
                       int32_t reel_position) {
-  d.drawCircle(120, 120, 115, green);
+  d.drawCircle(120, 120, 115, link_color(connected));
   d.drawCircle(120, 120, 108, trace_bright);
   for (int i = 0; i < 24; ++i) {
     const float a = i * 6.2831853f / 24 - 1.5707963f;
@@ -364,7 +366,7 @@ void draw(const RadioState& state, Focus focus, bool connected, bool pairing,
   ambient(d, view == View::carousel ? selected : state.dashboard, now);
   if (view == View::connection) {
     const auto& s=device_status;
-    d.drawCircle(120,120,112,cyan);d.setTextColor(ink,bg);d.setTextSize(3);draw_text(d,"DEVICES",120,37);
+    d.drawCircle(120,120,112,link_color(connected));d.setTextColor(ink,bg);d.setTextSize(3);draw_text(d,"DEVICES",120,37);
     d.setTextSize(2);draw_text(d,s.trusted?"OrcSDR Tab5":"No trusted tablet",120,62);
     char id[32];const auto* fingerprint=s.trusted?s.peer_identity:s.identity;
     std::snprintf(id,sizeof id,"ID %02X%02X-%02X%02X",fingerprint[0],fingerprint[1],fingerprint[14],fingerprint[15]);
@@ -397,7 +399,7 @@ void draw(const RadioState& state, Focus focus, bool connected, bool pairing,
     return;
   }
   if (view == View::home) {
-    d.drawCircle(120, 120, 115, green);
+    d.drawCircle(120, 120, 115, link_color(connected));
     d.drawCircle(120, 120, 110, 0x1b4e60);
     d.drawPng(badge_start, badge_end - badge_start, 68, 29);
     d.setTextColor(ink, bg); d.setTextSize(3); draw_text(d, "OrcSDR", 120, 151);
@@ -412,7 +414,7 @@ void draw(const RadioState& state, Focus focus, bool connected, bool pairing,
     const auto prev = carousel[(index + carousel_count - 1) % carousel_count];
     const auto next = carousel[(index + 1) % carousel_count];
     const uint32_t accent = accent_for(selected, connected);
-    d.drawCircle(120, 120, 115, accent);
+    d.drawCircle(120, 120, 115, link_color(connected));
     for (int i = 0; i < 12; ++i) {
       const float a = (i * 30 - 90) * 0.017453293f;
       d.drawLine(120 + int(108 * cosf(a)), 120 + int(108 * sinf(a)),
@@ -449,7 +451,7 @@ void draw(const RadioState& state, Focus focus, bool connected, bool pairing,
   const auto dashboard = state.dashboard;
   const bool can_tune = tunable(dashboard);
   const uint32_t accent = accent_for(dashboard, connected);
-  d.drawCircle(120, 120, 116, accent);
+  d.drawCircle(120, 120, 116, link_color(connected));
   d.drawCircle(120, 120, 112, 0x1b4e60);
   d.setTextColor(accent, bg); d.setTextSize(2);
   draw_text(d, dashboard_name(dashboard), 120, 34);

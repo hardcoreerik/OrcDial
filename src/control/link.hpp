@@ -29,7 +29,20 @@ class Link {
   uint32_t pending_sequence() const { return pending_sequence_; }
   const RadioState& state() const { return state_; }
   uint32_t last_ack() const { return last_ack_; }
+  // Radio diagnostics: counters and a bounded event trace that separate "frame accepted by the
+  // ESP-NOW stack" from "frame completed on air" and show which channel each event happened on.
+  // Counters are updated from several tasks without locking; they are for diagnosis only.
+  uint8_t channel() const { return channel_; }
+  void rf_report() const;
+  void rf_reset();
+  void rf_trace(uint8_t mode) { trace_mode_ = mode; }  // 0 off (default), 1 on, 2 on for the first 60 s after boot
  private:
+  enum RfKind : uint8_t { rf_tx_accepted = 1, rf_tx_refused, rf_cb_ok, rf_cb_fail, rf_rx, rf_scan };
+  struct RfEvent { uint32_t ms; uint8_t kind, channel; };
+  static constexpr size_t rf_ring_size = 64;
+  static void sent(const uint8_t* mac, esp_now_send_status_t status);
+  static void note(RfKind kind);
+  static bool evidence();  // a unicast frame was acknowledged recently: the peer hears us on this channel
   struct Incoming { uint8_t mac[6]; uint8_t data[packet_size]; uint8_t size; };
   static void receive(const uint8_t* mac, const uint8_t* data, int size);
   static bool transmit(const uint8_t* mac,const uint8_t* wire);
@@ -52,5 +65,16 @@ class Link {
   RadioState state_{};
   secure::Runtime secure_;
   static Link* active_;
+  static volatile uint8_t channel_;
+  static volatile uint32_t last_unicast_ok_ms_;
+  static volatile uint32_t set_channel_errors_;
+  uint8_t saved_channel_ = 0;
+  uint32_t connected_at_ = 0;
+  static volatile uint8_t trace_mode_;
+  static RfEvent ring_[rf_ring_size];
+  static volatile uint32_t ring_head_, ring_tail_;
+  static portMUX_TYPE ring_lock_;
+  static volatile uint32_t tx_accepted_, tx_refused_, cb_ok_, cb_fail_, rx_frames_;
+  static volatile uint32_t tx_by_channel_[14], rx_by_channel_[14];
 };
 } // namespace orc
