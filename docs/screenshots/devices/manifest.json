@@ -1,0 +1,128 @@
+{
+  "width": 240,
+  "height": 240,
+  "transport": "USB framebuffer export",
+  "captured_utc": "2026-10-05T20:33:30.419025+00:00",
+  "firmware_sha256": "eab8926bcaf672e6a7b9a09e1f0459427fc372b20a695618f2267509f5ba0088",
+  "capture_tool_sha256": "8be346340bec7e67e34c59871f5664f12e050e90f62f8fba80ef5b65c81f5528",
+  "base_commit": "3177dba5270712dc3bb37889c78ef7f8ba3dede5",
+  "source_sha256": {
+    "assets/dashboard/adsb.png": "83784f0f7bd872928eacaebb937015b661147cbb44c9e73fb9b973a638b452be",
+    "assets/dashboard/airband.png": "d1374407eebae8afdcf1dea9dbdf1af109f853aabaa5f049657f68edc671f6f8",
+    "assets/dashboard/am.png": "b9b74c9ed24c64fcbb2a22a91a4e9f34a9871fef3dc8bdfd7df62fc508d53909",
+    "assets/dashboard/cb.png": "83d6368d8f7b4ca0af50469accce3d27644889d0d99366a040c6110f35cc84bd",
+    "assets/dashboard/fm.png": "ddd041f6f6545a1f6fb22022f86dec57cdde4314adf3e727a38bd760a6238da2",
+    "assets/dashboard/lora.png": "6c69e9d8237214113dda63e2f71afb856f98e211532b465002025086badcf84c",
+    "assets/dashboard/marine.png": "5c54a2bedc6b2af1f8ac53bf0e27fac571dd208ef1861cd94baaf0b6b5583e75",
+    "assets/dashboard/p25.png": "7bd7f77a7399778b18a5a90bde093e5e03020ba304e78449ffa91dda08e187b8",
+    "assets/dashboard/pocsag.png": "2dcaf3cea24a4f52b580161bfcf4ea19993ab78abf73c0676edabf4fcee23141",
+    "assets/dashboard/rf_lab.png": "d30e666ba2c10bf97c449f7cd7fb0c1d13806a92e17b24ddb8c13f5c66b5cd86",
+    "assets/dashboard/satellite.png": "625be0c8cf43e4d6c0a9847bc33399d446eda9f5b6e5b711753d636699d69d90",
+    "assets/dashboard/settings.png": "d01e9fe48541efcda016feb543aa9433d8526bfd9ba91cff2f1e638c9b3fbf58",
+    "assets/dashboard/shortwave.png": "f4a504e47fd9b9a4fe279a1b453e1f75f7473da071361f9bfe6cdb16ef20a9f9",
+    "assets/dashboard/weather.png": "462cd4725ede6403f1748d34f8622927f18dc5639d76fdad21ef10c621c48456",
+    "assets/dashboard/wifi_analysis.png": "ba9335d700c17cf86860b6de7a5451b6c0c151a68cf994d179ac4b274e54bb58",
+    "assets/orc_badge_104.png": "f1fbadb704a0461d6f5cf1c59d8f31ada493585b22f7167117ace0bb1dc43c13",
+    "platformio.ini": "8fcde1d4598e94d3ef97278dfb91a304998e428e306146d79338bdd8be7fb8e1",
+    "src/controller.hpp": "2e55afd7e8e3ad181063783c1f91be70b46fca0ebef111863c44214cacb4de1b",
+    "src/dashboard.hpp": "5284d5a87e5e2029ebb5487ef5ffa497516c4666557d1b12929116cd51315505",
+    "src/main.cpp": "cf7f4c281ce70839a024aaa1e0d4d417f53dbd559db06a672366d51cfa468698",
+    "src/state.hpp": "8734566e9949a5ec7daa1df5c1c725c12fdfdee9edc574ddc4224050d186d388",
+    "src/ui.cpp": "6c0a43e2aae276bfbe53165cfe84512e36f8f901febd7f78d4777f247aba69d7",
+    "src/ui.hpp": "fb4ceb4a052929cb335cafc8b84727ccd6200e68ff0bfd888f9da5e62811cbc4"
+  },
+  "source": "M5Dial doc_capture firmware, production UI renderer",
+  "note": "Preview data only. No live RF readings or receiver control. Raw square frames preserve exported pixels; rounded PNGs mask physical LCD corners.",
+  "cases": [
+    {
+      "slug": "devices-unpaired",
+      "title": "Devices: unpaired",
+      "group": "devices",
+      "command": "ORCDIAL_DOC_DEVICE 0 0",
+      "demo": true,
+      "pixel_sha256": "21bd195fab4175c2c13a3447b308db4245d700d10fcfacfcc89e75b569294620",
+      "png_sha256": "81985067ffb234e0ea3aea56c9f01327262a16d6479fec8f51139de0160dd948",
+      "path": "devices-unpaired.png"
+    },
+    {
+      "slug": "devices-searching",
+      "title": "Devices: searching",
+      "group": "devices",
+      "command": "ORCDIAL_DOC_DEVICE 1 0",
+      "demo": true,
+      "pixel_sha256": "984c06f9074756ec1b9413c2af7844b1cfe0ea03b3557ed97e71dd5630eebfb6",
+      "png_sha256": "5a8f289caf8132ef607c8f45746ca317be9c56f3d6c5c2b5609ecbf73aeab39a",
+      "path": "devices-searching.png"
+    },
+    {
+      "slug": "devices-trusted-offline",
+      "title": "Devices: trusted-offline",
+      "group": "devices",
+      "command": "ORCDIAL_DOC_DEVICE 2 0",
+      "demo": true,
+      "pixel_sha256": "3fe27e443b6e12cf856bfdf77d5b626cfa2868bfdeacb54a72303353f3c83add",
+      "png_sha256": "8420ea5f1d2bc2112aba01dce4decc72fb5d0da1e7135e7513c2c550afd3931b",
+      "path": "devices-trusted-offline.png"
+    },
+    {
+      "slug": "devices-connected",
+      "title": "Devices: connected",
+      "group": "devices",
+      "command": "ORCDIAL_DOC_DEVICE 3 0",
+      "demo": true,
+      "pixel_sha256": "b541f3291256fd046753944fb8f0b84f2a03ddf6eb2a6cd216f1c347f6de3e1c",
+      "png_sha256": "18dbf221610caefea7bf7b9ab27174e450f6f6ea07e21600a8080016c3c7b170",
+      "path": "devices-connected.png"
+    },
+    {
+      "slug": "devices-disconnected",
+      "title": "Devices: disconnected",
+      "group": "devices",
+      "command": "ORCDIAL_DOC_DEVICE 4 0",
+      "demo": true,
+      "pixel_sha256": "82765b11e089fd2e25c5093df8faa4e56637497e6a77e7c1aacdb71cb5f1bd40",
+      "png_sha256": "045f2152b296da1df16c71e7ffc89be93d1f5b34c69bc26795041b9f7c767550",
+      "path": "devices-disconnected.png"
+    },
+    {
+      "slug": "devices-verification",
+      "title": "Devices: verification",
+      "group": "devices",
+      "command": "ORCDIAL_DOC_DEVICE 5 0",
+      "demo": true,
+      "pixel_sha256": "c419c744c719af99c86aab3f574959f3e0f8a60d66ea256de7a010d4db8436be",
+      "png_sha256": "c5029d5bd060c12c903d0ac5d87cbfafa3e877c8a9eb8f1b9b6f81df14f09969",
+      "path": "devices-verification.png"
+    },
+    {
+      "slug": "devices-forget-confirmation",
+      "title": "Devices: forget-confirmation",
+      "group": "devices",
+      "command": "ORCDIAL_DOC_DEVICE 6 0",
+      "demo": true,
+      "pixel_sha256": "da4744f2cbdfe03ada9c212ef8bb82917b0d1c670dfd782d8f9afc4903ffef89",
+      "png_sha256": "4bb477166b4431b1e39087b97fa2e588e5415fabf6248b5892101e6e9fb5e52b",
+      "path": "devices-forget-confirmation.png"
+    },
+    {
+      "slug": "devices-upgrade",
+      "title": "Devices: upgrade",
+      "group": "devices",
+      "command": "ORCDIAL_DOC_DEVICE 7 0",
+      "demo": true,
+      "pixel_sha256": "0e8e29ad99505999aeaba57ec19c74bcc51571f050741c3c9164bbd2c3cd42d5",
+      "png_sha256": "34a8d17de2fa25751168ef9695c6e92a4a63109a04138cfb430d43cb81a7c400",
+      "path": "devices-upgrade.png"
+    },
+    {
+      "slug": "devices-timeout",
+      "title": "Devices: timeout",
+      "group": "devices",
+      "command": "ORCDIAL_DOC_DEVICE 8 0",
+      "demo": true,
+      "pixel_sha256": "5244bcd7bdc07abe2a83f1e7015541807dc49a399af00e877a83f3e0a8854f05",
+      "png_sha256": "3636eda0659cd3ea1670afa138806c2736733bc192d4d70f4c8b4c0cd55b8cfa",
+      "path": "devices-timeout.png"
+    }
+  ]
+}
