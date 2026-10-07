@@ -1,5 +1,6 @@
 #include "ui.hpp"
 #include "controller.hpp"
+#include "band_names.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -94,6 +95,87 @@ static void frequency(lgfx::LGFXBase& d, uint32_t hz, int y, int size, uint32_t 
     std::snprintf(text, sizeof text, "%lu.%06lu", (unsigned long)(hz / 1000000),
                   (unsigned long)(hz % 1000000));
   d.setTextColor(color, bg); d.setTextSize(size); draw_text(d, text, 120, y);
+}
+
+// Home as a general-purpose VFO. The Tab5 resolves the band, mode and step for the frequency; this only shows them.
+static void home_screen(lgfx::LGFXBase& d, const RadioState& state, Focus focus, bool pending, uint32_t now) {
+  d.drawCircle(120, 120, 115, link_color(true));
+  d.drawCircle(120, 120, 110, 0x1b4e60);
+  // Decorative waveform behind the readout; it does not represent the received signal.
+  for (int k = 0; k < 2; ++k) {
+    int previous = 120;
+    for (int x = 24; x <= 216; x += 4) {
+      const float envelope = sinf((x - 24) * 3.14159f / 192.0f);
+      const float phase = x * (k ? 0.13f : 0.09f) + now * (k ? -0.0021f : 0.0016f);
+      const int y = 120 + int(24 * envelope * sinf(phase));
+      if (x > 24) d.drawLine(x - 4, previous, x, y, k ? trace : trace_bright);
+      previous = y;
+    }
+  }
+  static const char* modes[] = {"--", "NFM", "AM", "WFM", "USB", "LSB"};
+  d.setTextColor(cyan); d.setTextSize(2); draw_text(d, band_name(state.band), 120, 32);
+  d.setTextColor(green); d.setTextSize(2);
+  draw_text(d, modes[state.mode < 6 ? state.mode : 0], 120, 54);
+  char line[32];
+  const uint32_t hz = state.frequency_hz;
+  if (hz % 1000 == 0)
+    std::snprintf(line, sizeof line, "%lu.%03lu", (unsigned long)(hz / 1000000), (unsigned long)(hz / 1000 % 1000));
+  else
+    std::snprintf(line, sizeof line, "%lu.%06lu", (unsigned long)(hz / 1000000), (unsigned long)(hz % 1000000));
+  d.setTextColor(ink); d.setTextSize(4); draw_text(d, line, 120, 112);
+  d.setTextColor(dim); d.setTextSize(1); draw_text(d, "MHz", 120, 140);
+  if (focus == Focus::vfo) d.fillRect(52, 131, 136, 2, green);
+  if (pending) d.fillCircle(206, 112, 3, cyan);
+  if (state.step_hz % 1000 == 0) std::snprintf(line, sizeof line, "STEP %lu kHz", (unsigned long)(state.step_hz / 1000));
+  else std::snprintf(line, sizeof line, "STEP %.1f kHz", state.step_hz / 1000.0);
+  d.setTextColor(focus == Focus::step ? green : dim); d.setTextSize(2); draw_text(d, line, 120, 160);
+  const uint32_t bar = focus == Focus::volume ? green : trace_bright;
+  d.drawRoundRect(70, 176, 100, 9, 3, bar);
+  d.fillRoundRect(72, 178, std::min<int>(state.volume, 100) * 96 / 100, 5, 2, bar);
+  d.setTextColor(dim); d.setTextSize(1); draw_text(d, "PRESS: NEXT   HOLD: DASHBOARDS", 120, 206);
+}
+
+// Keypad geometry for the 240 px round screen: every key sits inside the circle.
+static constexpr char keypad_keys[] = {'1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '\b'};
+static constexpr int kp_x0 = 42, kp_y0 = 54, kp_w = 50, kp_h = 30, kp_px = 54, kp_py = 34;
+static constexpr int kp_cancel_x = 50, kp_tune_x = 122, kp_button_y = 192, kp_button_w = 68, kp_button_h = 22;
+static char keypad_entry[12];
+static bool keypad_out_of_range = false;
+void keypad_state(const char* entry, bool out_of_range) {
+  std::snprintf(keypad_entry, sizeof keypad_entry, "%s", entry ? entry : "");
+  keypad_out_of_range = out_of_range;
+}
+static bool kp_inside(int x, int y, int bx, int by, int bw, int bh) {
+  return x >= bx - 2 && x < bx + bw + 2 && y >= by - 2 && y < by + bh + 2;
+}
+char keypad_hit(int x, int y) {
+  for (int i = 0; i < 12; ++i)
+    if (kp_inside(x, y, kp_x0 + (i % 3) * kp_px, kp_y0 + (i / 3) * kp_py, kp_w, kp_h)) return keypad_keys[i];
+  if (kp_inside(x, y, kp_cancel_x, kp_button_y, kp_button_w, kp_button_h)) return 'C';
+  if (kp_inside(x, y, kp_tune_x, kp_button_y, kp_button_w, kp_button_h)) return 'T';
+  return 0;
+}
+static void keypad_screen(lgfx::LGFXBase& d, bool connected) {
+  d.drawCircle(120, 120, 115, link_color(connected));
+  d.fillRoundRect(56, 20, 128, 28, 6, panel);
+  d.drawRoundRect(56, 20, 128, 28, 6, keypad_out_of_range ? red : cyan);
+  char line[16];
+  if (keypad_entry[0]) std::snprintf(line, sizeof line, "%s", keypad_entry);
+  else std::snprintf(line, sizeof line, "MHz");
+  d.setTextColor(keypad_entry[0] ? ink : dim); d.setTextSize(2); draw_text(d, line, 120, 34);
+  for (int i = 0; i < 12; ++i) {
+    const int x = kp_x0 + (i % 3) * kp_px, y = kp_y0 + (i / 3) * kp_py;
+    d.fillRoundRect(x, y, kp_w, kp_h, 6, panel);
+    d.drawRoundRect(x, y, kp_w, kp_h, 6, trace_bright);
+    const char label[2] = {keypad_keys[i] == '\b' ? '<' : keypad_keys[i], 0};
+    d.setTextColor(ink); d.setTextSize(2); d.drawString(label, x + kp_w / 2, y + kp_h / 2);
+  }
+  d.fillRoundRect(kp_cancel_x, kp_button_y, kp_button_w, kp_button_h, 6, panel);
+  d.drawRoundRect(kp_cancel_x, kp_button_y, kp_button_w, kp_button_h, 6, red);
+  d.setTextColor(red); d.setTextSize(1); d.drawString("CANCEL", kp_cancel_x + kp_button_w / 2, kp_button_y + kp_button_h / 2);
+  d.fillRoundRect(kp_tune_x, kp_button_y, kp_button_w, kp_button_h, 6, green);
+  d.setTextColor(bg); d.setTextSize(1); d.drawString("TUNE", kp_tune_x + kp_button_w / 2, kp_button_y + kp_button_h / 2);
+  if (keypad_out_of_range) { d.setTextColor(red); d.setTextSize(1); draw_text(d, "24 - 1766 MHz", 120, 222); }
 }
 
 static void fm_screen(lgfx::LGFXBase& d, const RadioState& state, Focus focus,
@@ -397,6 +479,14 @@ void draw(const RadioState& state, Focus focus, bool connected, bool pairing,
     if(demo){d.setTextColor(cyan,bg);draw_text(d,"DEMO",120,222);}
     present();
     return;
+  }
+  if (view == View::keypad) {
+    keypad_screen(d, connected);
+    present(); return;
+  }
+  if (view == View::home && connected && state.dashboard == Dashboard::home) {
+    home_screen(d, state, focus, pending_delta, millis());
+    present(); return;
   }
   if (view == View::home) {
     d.drawCircle(120, 120, 115, link_color(connected));
