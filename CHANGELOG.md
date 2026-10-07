@@ -2,6 +2,17 @@
 
 ## Unreleased — Devices and secure pairing
 
+- Home is a full-range VFO: the knob tunes by the step and raster of whatever band the Tab5 reports, the
+  band name, mode, step and volume show on the round display, a long press on the frequency opens a
+  tuning keypad, and the mode chip cycles NFM, AM, WFM, USB and LSB. The band id rides in reserved
+  packet byte 7 (no version change). Press now cycles frequency, step, span and filter: turning on
+  SPAN zooms the Tab5 spectrum and turning on FILTER widens or narrows the receive filter, with the
+  two edge lines shown on the Tab5 while you adjust.
+- Add Dial Settings, its own vertical menu (the last carousel stop, or a four-second hold on Home):
+  Pairing (the former Devices screen), Link (channel, lock, last heard, counters), Display
+  (brightness, sleep), Knob (acceleration, reverse, click), About and Reset. Tapping the top of a
+  screen no longer opens pairing.
+
 - Fix intermittent boot-time connection failures: a channel lock now holds only while the peer
   acknowledges unicast frames (a valid offer heard on a neighbouring channel no longer pins the Dial to
   the wrong channel), the Dial remembers and tries its last working channel first, and a timed-out

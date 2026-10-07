@@ -45,8 +45,8 @@ See the [screen gallery](docs/screenshots/README.md) for native-resolution PNGs 
 ## Pairing
 
 The unreleased branch requires version-4 applications on both devices. Open
-**Settings → Accessories & Companion** on the Tab5 and **Devices** in the Dial
-carousel. Pair on both, compare the six-digit code and confirm on BOTH devices.
+**Settings → Accessories & Companion** on the Tab5 and **Dial Settings → Pairing** on the
+Dial (the last stop of the dashboard carousel, or hold the knob for four seconds on Home). Pair on both, compare the six-digit code and confirm on BOTH devices.
 Pair establishes persistent trust. Connect, Disconnect and Forget & Re-pair are
 separate actions; boot connection defaults on after successful pairing.
 
