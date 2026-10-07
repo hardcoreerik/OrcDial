@@ -4,7 +4,7 @@ Checked against `dashboard_registry` and dashboard handlers on `origin/main` 11c
 
 | Dashboard | View | Default rotate | Short press | Touch actions | Existing serial/API | Added API needed | State returned to Dial |
 |---|---|---|---|---|---|---|---|
-| Home | Launcher | Previous/next dashboard in registry | Open selected dashboard | Open carousel, link/pairing | `RTL_UI OPEN`, `RTL_UI STATUS` | Supported-dashboard list and active ID over ESP-NOW | Active dashboard, supported IDs, link/receiver status |
+| Home | Full-range VFO (launcher when offline) | Tune by the band's step (value is a step count) | Frequency → step → span → filter → volume | Long-press frequency: keypad; mode area: cycle mode; BACK: carousel; Dial Settings from the carousel | `RTL_UI OPEN`, `RTL_UI STATUS` | Supported-dashboard list and active ID over ESP-NOW | Active dashboard, supported IDs, link/receiver status |
 | FM | Listen | Tune by current FM step | Frequency → step → gain → volume | Seek, presets, Home | `RTL_UI ACTION FM TUNE/UP/DOWN/STEP/GAIN/VOL_UP/VOL_DOWN/SEEK_*` | Binary action route and bounded FM snapshot | Frequency, step, mode, gain capability, real signal; RDS only when valid |
 | AM | Listen | Tune by current AM channel spacing | Frequency → step → gain → volume | Scan, presets, Home | `RTL_UI ACTION AM` handler exists; `RTL_TUNE AM` | Document AM action variants; binary snapshot | Frequency, spacing, mode, scan and real signal |
 | Weather | Channel | Previous/next *Tab5-owned* NOAA channel | Channel → volume | Channel, mute, Home | `RTL_TUNE WX`, `RTL_FREQ` only | Channel plan and `WEATHER PREV/NEXT/CHANNEL` through shared handler | Channel index/count, frequency, mode, real signal |

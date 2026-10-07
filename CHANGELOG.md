@@ -12,6 +12,11 @@
   Pairing (the former Devices screen), Link (channel, lock, last heard, counters), Display
   (brightness, sleep), Knob (acceleration, reverse, click), About and Reset. Tapping the top of a
   screen no longer opens pairing.
+- Add a BACK button to every dashboard screen and to Home (it opens the dashboards carousel); drop the tiny bottom
+  hints. A long press on the frequency opens the tuning keypad on every tunable dashboard (FM 76 to 108 MHz,
+  AM 0.5 to 1.7 MHz, others 0.1 to 1766 MHz; the Tab5 validates again). The Home waveform sits above the
+  frequency. The boot and offline Home titles say OrcDial in the OrcSDR wordmark gradient.
+- Dial Settings screens return to Home after 60 seconds without input; the menu gains a Back entry.
 
 - Fix intermittent boot-time connection failures: a channel lock now holds only while the peer
   acknowledges unicast frames (a valid offer heard on a neighbouring channel no longer pins the Dial to
