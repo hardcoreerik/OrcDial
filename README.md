@@ -33,9 +33,12 @@ Replace COM14 with your Dial's port. Platform, board, and library versions are p
 
 ## Display and controls
 
-- Five-second Orc badge splash, OrcSDR Home, and a side carousel with illustrated dashboard pictures.
+- Five-second boot splash with the Orc badge and "OrcDial" in the OrcSDR wordmark gradient, then Home and a side carousel with illustrated dashboard pictures.
+- **Home is a full-range VFO** when the Tab5 shows Home: the knob tunes the whole range by the step and raster of the band the Tab5 reports, and the round display shows the band name, mode, frequency, step, span or filter, and volume over a decorative waveform. Press cycles frequency, step, span, filter and volume; turning on SPAN zooms the Tab5 spectrum and turning on FILTER widens or narrows the receive filter, with the two edge lines shown on the Tab5 while you adjust. While linked, a long press on the frequency opens a tuning keypad (on every tunable dashboard too, limited to that band), tapping the mode area cycles NFM, AM, WFM, USB and LSB, and BACK opens the dashboards carousel. Offline, Home is the launcher.
+- Every dashboard screen ends in a BACK button that returns to the carousel; holding the knob returns to Home.
+- **Dial Settings** (the last carousel stop, or hold the knob for four seconds on Home) is its own vertical menu: Pairing, Link (channel, lock, last heard, counters), Display (brightness, sleep), Knob (acceleration, reverse, click), About, Reset and Back. Settings screens return to Home after 60 seconds without input.
 - Dashboard-aware tuning views, including Reel, Dial, Odometer, Tape, and Split frequency graphics.
-- Rotate to browse dashboards; press to open one. On a tuner, rotate to change the focused control and press to cycle frequency, step, gain, and volume where supported.
+- Rotate to browse dashboards; press to open one. On a tuner dashboard, rotate to change the focused control and press to cycle frequency, step, gain, and volume where supported.
 - The receiver owns the actual radio state. The Dial shows acknowledged state and labels disconnected previews OFFLINE.
 
 Supported and pending receiver actions are recorded in [the control matrix](docs/ORCDIAL_CONTROL_MATRIX.md). A visible dashboard does not imply every action is implemented.
@@ -45,8 +48,8 @@ See the [screen gallery](docs/screenshots/README.md) for native-resolution PNGs 
 ## Pairing
 
 The unreleased branch requires version-4 applications on both devices. Open
-**Settings → Accessories & Companion** on the Tab5 and **Devices** in the Dial
-carousel. Pair on both, compare the six-digit code and confirm on BOTH devices.
+**Settings → Accessories & Companion** on the Tab5 and **Dial Settings → Pairing** on the
+Dial (the last stop of the dashboard carousel, or hold the knob for four seconds on Home). Pair on both, compare the six-digit code and confirm on BOTH devices.
 Pair establishes persistent trust. Connect, Disconnect and Forget & Re-pair are
 separate actions; boot connection defaults on after successful pairing.
 
