@@ -1,0 +1,34 @@
+name: CI
+
+# Host tests (security, protocol, controller, runtime, policy; Debug and Release), capture
+# safeguards and both firmware builds via tools/release_check.py. No hardware.
+on:
+  pull_request:
+    paths-ignore: ['**.md', 'docs/**', 'LICENSE']
+  push:
+    branches: [main]
+    paths-ignore: ['**.md', 'docs/**', 'LICENSE']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.platformio
+          key: pio-${{ runner.os }}-${{ hashFiles('platformio.ini', 'tools/ci/setup.sh') }}
+      - name: Toolchain
+        run: bash tools/ci/setup.sh
+      - name: release_check.py (no hardware)
+        run: python tools/release_check.py --mbedtls-source "$MBEDTLS_SOURCE" --pio pio

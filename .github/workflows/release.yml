@@ -1,0 +1,67 @@
+name: Firmware release assets
+
+# When a vX.Y.Z release is published, build that tag and attach the browser-installer inputs:
+# OrcDial-M5Dial-<tag>.bin (complete image for 0x0), the ELF and SHA256SUMS.txt. theorc.dev's
+# stable sync (theorc-site orcsdr-release.yml, all products) then splits it NVS-safe for /dial/flash/.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing release tag to (re)build assets for'
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firmware-release-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  assets:
+    if: startsWith(github.event.release.tag_name || inputs.tag, 'v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+      HAS_DISPATCH: ${{ secrets.SITE_DISPATCH_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: refs/tags/${{ env.TAG }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.platformio
+          key: pio-${{ runner.os }}-${{ hashFiles('platformio.ini', 'tools/ci/setup.sh') }}
+      - name: Toolchain
+        run: bash tools/ci/setup.sh
+      - name: Tests and both firmware builds
+        run: python tools/release_check.py --mbedtls-source "$MBEDTLS_SOURCE" --pio pio
+      - name: Build and attach
+        run: |
+          set -euo pipefail
+          bash tools/ci/build-dial.sh --out dist --build-id "$TAG" --name "OrcDial-M5Dial-$TAG"
+          cd dist
+          zip -q -9 "OrcDial-M5Dial-$TAG.elf.zip" "OrcDial-M5Dial-$TAG.elf"
+          sha256sum "OrcDial-M5Dial-$TAG.bin" "OrcDial-M5Dial-$TAG.elf.zip" > SHA256SUMS.txt
+          gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber \
+            "OrcDial-M5Dial-$TAG.bin" "OrcDial-M5Dial-$TAG.elf.zip" SHA256SUMS.txt
+      - name: Notify theorc.dev
+        if: env.HAS_DISPATCH == 'true'
+        env:
+          SITE_DISPATCH_TOKEN: ${{ secrets.SITE_DISPATCH_TOKEN }}
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+            -H "Authorization: Bearer $SITE_DISPATCH_TOKEN" -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/hardcoreerik/theorc-site/dispatches \
+            -d "{\"event_type\":\"orcdial-release\",\"client_payload\":{\"tag\":\"$TAG\"}}")
+          if [ "$code" != 204 ]; then
+            echo "::warning::theorc-site dispatch failed (HTTP $code); its hourly sync will pick the release up."
+          fi
