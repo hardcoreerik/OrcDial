@@ -1,5 +1,6 @@
 #include "control/link.hpp"
 #include "ui.hpp"
+#include "version.hpp"
 #include <M5Dial.h>
 #include <cstdlib>
 #include <cstring>
@@ -361,7 +362,9 @@ static void poll_serial_commands() {
   }
 }
 void setup() {
-  Serial.begin(115200); Serial.println("ORCDIAL_BOOT");
+  Serial.begin(115200);
+  Serial.printf("ORCDIAL_BOOT version=%s source=%s dirty=%d build=%s protocol=%u\n",
+                ORCDIAL_VERSION, ORCDIAL_SOURCE_COMMIT, ORCDIAL_SOURCE_DIRTY, ORCDIAL_BUILD_ID, orc::version);
   auto cfg = M5.config(); M5Dial.begin(cfg, true, false);
   orc::load_settings(dial_settings);
   apply_display();

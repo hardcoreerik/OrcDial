@@ -5,7 +5,11 @@ OrcDial is an optional M5Stack M5Dial accessory for [OrcSDR](https://github.com/
 
 This repository owns the **M5Dial firmware**, dashboard graphics, controller/protocol code, tests, and future Dial releases. Tab5 pairing/settings, the receiver bridge, and the C6 radio relay remain in OrcSDR. See [the import record](docs/IMPORT.md) for the exact source snapshot and repository boundary.
 
-The first source release is **v0.1.0-beta.1**. See the [changelog](CHANGELOG.md) for its features, validation, and known limits.
+The historical source tag **v0.1.0-beta.1** is unchanged. Public firmware releases use
+OrcDial's own version sequence, starting at **0.1.0-beta.1** with tag
+**orcdial-v0.1.0-beta.1**, independently of OrcSDR. This is a public testing beta;
+release notes identify the compatible receiver firmware and pairing protocol.
+See the [changelog](CHANGELOG.md) for features, validation, and known limits.
 
 ## Install OrcDial on the Dial (browser)
 
@@ -83,6 +87,11 @@ python tests/host_probe.py --port COM17
 ```
 
 These version-4 scripts require attached hardware. They check status and command parsing without opening pairing, changing trust, tuning or flashing. Stop any monitor using the same port first. A status response alone does not prove RF delivery or pairing.
+
+Dial Settings > About shows the firmware **VERSION** and short **SOURCE** commit.
+Serial startup (`ORCDIAL_BOOT`) records the version, full source commit, edited-source
+flag, build ID and pairing protocol. Build artifacts record SHA-256 hashes; source
+identity alone does not establish hardware acceptance.
 
 Run the repeatable [regression and release checks](docs/RELEASE_CHECKS.md) with `python tools/release_check.py --mbedtls-source <mbedtls-3.6-source>`. It builds and tests Debug/Release host programs, capture safeguards, Devices images, and both Dial firmware configurations, saving logs and JSON/Markdown results. Add `--hardware` to record the acceptance checklist after flashing; skipped checks remain incomplete.
 
