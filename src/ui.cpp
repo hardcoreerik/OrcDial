@@ -260,8 +260,19 @@ static void settings_page_screen(lgfx::LGFXBase& d, bool connected) {
     }
     case Page::about: {
       line(56, ink, "OrcDial for OrcSDR");
-      std::snprintf(a, sizeof a, "BUILD %s", __DATE__);
-      line(78, dim, a);
+      {
+        // CI builds pass ORCDIAL_BUILD_ID (e.g. "nightly dfb3942 2026-10-08" or the release tag) so a
+        // bug report names the exact firmware; local builds keep showing the compile date.
+        // draw_text() shrinks the line to fit the round screen.
+#ifdef ORCDIAL_BUILD_ID
+        char build[48];
+        std::snprintf(build, sizeof build, "BUILD %s", ORCDIAL_BUILD_ID);
+#else
+        char build[24];
+        std::snprintf(build, sizeof build, "BUILD %s", __DATE__);
+#endif
+        line(78, dim, build);
+      }
       line(98, dim, "PROTOCOL 4 (ENCRYPTED)");
       std::snprintf(a, sizeof a, "THIS DIAL %s", v.mac[0] ? v.mac : "--");
       line(120, dim, a);
