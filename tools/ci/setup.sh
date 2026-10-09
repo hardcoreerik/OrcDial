@@ -15,3 +15,12 @@ fi
 if [ -n "${GITHUB_PATH:-}" ]; then echo "$venv/bin" >> "$GITHUB_PATH"; fi
 if [ -n "${GITHUB_ENV:-}" ]; then echo "MBEDTLS_SOURCE=$mbedtls" >> "$GITHUB_ENV"; fi
 echo "venv $venv, mbedtls $mbedtls"
+
+# Temporary: since #6 the host runtime_test needs tests/runtime_stubs/esp_heap_caps.h (fixed by
+# PR #7, tests only). Until that lands, create the same empty stub in the CI workspace only (not
+# committed) so the host tests still run. No-op once the file exists in the repo.
+stub=tests/runtime_stubs/esp_heap_caps.h
+if [ -d tests/runtime_stubs ] && [ ! -f "$stub" ]; then
+  printf '#pragma once\n#include "runtime_platform.hpp"\n' > "$stub"
+  echo "::warning::CI created the empty host stub $stub (PR #7 adds it to the repo)"
+fi
