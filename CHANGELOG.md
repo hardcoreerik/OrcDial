@@ -2,6 +2,12 @@
 
 ## Unreleased — Devices and secure pairing
 
+- Add the FT8 RX dashboard (FT8, FT4 and JS8 receive on the Tab5) to the carousel as dashboard 17. Turning the knob changes the band on the Live and Hunter views and moves the selection on Decodes,
+  Map and Heard; a press starts or stops the hunter. With expert tuning on in the Tab5 Setup, a tap in the middle of the Dial switches the knob between band selection and fine tuning: the round display then shows the frequency large, the band small
+  and the step size ("STEP 1 kHz"), and turning steps the dial in Hz. New `ActionKind` values `ft8_band`, `ft8_item`, `ft8_hunter` and `ft8_fine` are appended (no existing value moves) and the FT8 capability flags are
+  specified in `PROTOCOL.md`. The Dial stays optional: an FT8-capable Tab5 works from touch alone, a Tab5 without FT8 rejects the dashboard, and an older Dial ignores the new bits. Also carries the Tab5-build queue
+  change in `secure_runtime.hpp` (PSRAM queues on the ESP32-P4 to spare internal DMA memory; no effect on the Dial's ESP32-S3).
+
 - Home is a full-range VFO: the knob tunes by the step and raster of whatever band the Tab5 reports, the
   band name, mode, step and volume show on the round display, a long press on the frequency opens a
   tuning keypad, and the mode chip cycles NFM, AM, WFM, USB and LSB. The band id rides in reserved
