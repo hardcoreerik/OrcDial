@@ -7,6 +7,18 @@ This repository owns the **M5Dial firmware**, dashboard graphics, controller/pro
 
 The first source release is **v0.1.0-beta.1**. See the [changelog](CHANGELOG.md) for its features, validation, and known limits.
 
+## Install OrcDial on the Dial (browser)
+
+Install OrcDial from the browser at **[theorc.dev/dial/flash](https://theorc.dev/dial/flash/)**. No tools to install.
+
+1. Open the link in **Chrome or Edge** on your computer.
+2. Connect the **M5Dial** with a USB-C **data** cable and close any serial monitor using its port.
+3. Click **Connect & install**, pick the Dial's serial port and follow the prompts.
+
+The installer **keeps your Dial settings and Tab5 pairing** unless you tick *Erase device*.
+
+Until the first OrcDial release is published, the installer offers the current **[nightly build](https://theorc.dev/dial/nightly/)** of `main`: it has passed the automated tests but is less tested than a release will be. The nightly page lists what's in it and the file checksums.
+
 ## Install OrcSDR on the Tab5 (the receiver)
 
 OrcDial needs OrcSDR on the Tab5. Install it from the browser at **[theorc.dev/sdr/flash](https://theorc.dev/sdr/flash/)**:
@@ -21,9 +33,9 @@ Alternative: the [M5Burner web flasher](https://burner.m5stack.com/share/firmwar
 
 These links install OrcSDR on the Tab5, not OrcDial on the Dial. For the OrcSDR build requirements for this accessory, see [Pairing](#pairing).
 
-## Build and flash OrcDial on the M5Dial
+## Build and flash OrcDial from source
 
-A browser installer for the Dial is coming to [theorc.dev](https://theorc.dev/). Until then, build and upload with PlatformIO.
+To build it yourself instead of using the [browser installer](https://theorc.dev/dial/flash/), use PlatformIO.
 
 Install PlatformIO Core or the PlatformIO IDE extension. From this repository's root:
 
@@ -33,7 +45,7 @@ pio run -e dial -t upload --upload-port COM14
 pio device monitor -p COM14 -b 115200
 ```
 
-Replace COM14 with your Dial's port. Platform, board, and library versions are pinned in [platformio.ini](platformio.ini). A build produces `.pio/build/dial/firmware.bin`; that application image alone is not a complete first-install or M5Burner package. This source release does not publish an OrcDial M5Burner listing or a prebuilt first-install package.
+Replace COM14 with your Dial's port. Platform, board, and library versions are pinned in [platformio.ini](platformio.ini). A build produces `.pio/build/dial/firmware.bin`; that application image alone is not a complete first-install or M5Burner package. There is no OrcDial M5Burner listing; for a complete prebuilt install use the [browser installer](https://theorc.dev/dial/flash/).
 
 ## Display and controls
 
@@ -85,3 +97,13 @@ Import/build validation in this repository is separate from flashing or testing 
 ## License and artwork
 
 The imported project preserves OrcSDR's [GNU Affero General Public License v3](LICENSE). Dependency licenses remain their own. Dashboard source artwork and generation notes are retained in [art/README.md](art/README.md).
+
+---
+
+<p align="center">
+  <a href="https://theorc.dev"><img src="https://theorc.dev/assets/brand/orc-company/orc-logo-600.webp" alt="Oregon Radio Company logo" width="240"></a>
+</p>
+
+<p align="center">
+  OrcDial is made by Oregon Radio Company LLC · <a href="https://theorc.dev">theorc.dev</a> · <a href="mailto:erik@theorc.dev">erik@theorc.dev</a>
+</p>
