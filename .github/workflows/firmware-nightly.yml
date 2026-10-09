@@ -53,8 +53,10 @@ jobs:
           if [ "$ahead" = 0 ]; then build=false; why="main is exactly $base (theorc.dev shows 'same as release')"
           elif [ "$sha" = "$last" ]; then build=false; why="main unchanged since the last nightly"
           elif [ -n "$last" ] && git cat-file -e "$last^{commit}" 2>/dev/null; then
-            # Docs and CI only (*.md, docs/, .github/, tools/ci/, LICENSE, dotfiles) don't change the firmware.
-            fw=$(git diff --name-only "$last" "$sha" | grep -vE '(^docs/|^\.github/|^tools/ci/|\.md$|^LICENSE$|^\.[^/]+$)' || true)
+            # Docs and CI only (*.md, docs/, LICENSE, top-level dotfiles but .gitattributes/.gitmodules, .github/ except this workflow)
+            # don't change the firmware. tools/ci/ and this file still build: they change how the image is made.
+            fw=$(git diff --name-only "$last" "$sha" | awk '!/^docs\// && !/\.md$/ && !/^LICENSE$/ && (!/^\.[^\/]+$/ || /^\.git(attributes|modules)$/) &&
+                 !(/^\.github\// && $0 != ".github/workflows/firmware-nightly.yml")')
             if [ -z "$fw" ]; then build=false; why="only docs/CI changed since the last nightly ${last:0:7}"; fi
           fi
           if [ "$FORCE" = true ]; then build=true; why="forced"; fi
