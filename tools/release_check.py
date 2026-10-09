@@ -78,6 +78,7 @@ def main():
             if run('build-' + mode, ['cmake', '--build', str(build), '--config', mode]):
                 run('test-' + mode, ['ctest', '--test-dir', str(build), '-C', mode, '--output-on-failure'])
     run('runner-regressions', [sys.executable, '-m', 'unittest', 'discover', '-s', 'tests', '-p', 'test_release_check.py'])
+    run('build-identity', [sys.executable, '-m', 'unittest', 'discover', '-s', 'tests', '-p', 'test_build_identity.py'])
     run('capture-guards', [sys.executable, '-m', 'unittest', 'discover', '-s', 'tests', '-p', 'test_capture_guards.py'])
     run('devices-captures', [sys.executable, 'tools/validate_captures.py', 'docs/screenshots/devices'])
     run('production-firmware', [args.pio, 'run', '-e', 'dial'])

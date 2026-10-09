@@ -1,6 +1,7 @@
 #include "ui.hpp"
 #include "controller.hpp"
 #include "band_names.hpp"
+#include "version.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -260,16 +261,18 @@ static void settings_page_screen(lgfx::LGFXBase& d, bool connected) {
     }
     case Page::about: {
       line(56, ink, "OrcDial for OrcSDR");
-      std::snprintf(a, sizeof a, "BUILD %s", __DATE__);
+      std::snprintf(a, sizeof a, "VERSION %s", ORCDIAL_VERSION);
       line(78, dim, a);
-      line(98, dim, "PROTOCOL 4 (ENCRYPTED)");
+      std::snprintf(a, sizeof a, "SOURCE %.7s%s", ORCDIAL_SOURCE_COMMIT, ORCDIAL_SOURCE_DIRTY ? " (edited)" : "");
+      line(98, dim, a);
+      line(116, dim, "PROTOCOL 4 (ENCRYPTED)");
       std::snprintf(a, sizeof a, "THIS DIAL %s", v.mac[0] ? v.mac : "--");
-      line(120, dim, a);
+      line(136, dim, a);
       const uint8_t* peer = v.security.peer_identity;
       if (v.security.trusted) std::snprintf(a, sizeof a, "TAB5 ID %02X%02X-%02X%02X", peer[0], peer[1], peer[14], peer[15]);
       else std::snprintf(a, sizeof a, "NO TAB5 PAIRED");
-      line(142, dim, a);
-      line(166, cyan, "theorc.dev");
+      line(156, dim, a);
+      line(176, cyan, "theorc.dev");
       break;
     }
     case Page::reset: {

@@ -6,17 +6,28 @@
       [--run-url URL] --json dist/build-info.json --notes dist/notes.md
 Consumed by theorc.dev (theorc-site/tools/build-fw-site.py). Schema 1; keep fields additive.
 """
-import argparse, datetime, hashlib, json, pathlib, re, subprocess
+import argparse, datetime, hashlib, json, pathlib, re, subprocess, sys
 
 WARNING = ("Nightly build from main. Includes changes headed for the next release. They've passed "
            "testing but haven't had a full release check, so expect the occasional bug.")
 
 
 def git(*a):
-    return subprocess.check_output(["git", *a], text=True).strip()
+    return subprocess.check_output(["git", *a], text=True, stderr=subprocess.PIPE).strip()
+
+
+def latest_base_tag():
+    try:
+        return git("describe", "--tags", "--match", "orcdial-v[0-9]*", "--abbrev=0", "HEAD")
+    except subprocess.CalledProcessError:
+        # Before the first component release, retain the immutable source-tag baseline.
+        return git("describe", "--tags", "--match", "v[0-9]*", "--abbrev=0", "HEAD")
 
 
 def main():
+    if sys.argv[1:] == ["--base-tag"]:
+        print(latest_base_tag())
+        return
     ap = argparse.ArgumentParser()
     ap.add_argument("--channel", default="nightly")
     ap.add_argument("--build-id", required=True)
@@ -28,7 +39,7 @@ def main():
     a = ap.parse_args()
 
     commit = git("rev-parse", "HEAD")
-    base = git("describe", "--tags", "--match", "v[0-9]*", "--abbrev=0", "HEAD")
+    base = latest_base_tag()
     changes = []
     for line in git("log", "--first-parent", "--format=%h%x09%s", f"{base}..HEAD").splitlines():
         sha, _, subject = line.partition("\t")
@@ -52,7 +63,7 @@ def main():
     if a.notes:
         lines = [f"**{WARNING}**", "",
                  f"Build: `{a.build_id}` (commit {commit[:7]}, {len(changes)} merged changes since {base}).",
-                 "On the Dial, Dial Settings > About > BUILD shows this line (firmware with the build-ID change); please include it in bug reports.", "",
+                 "On the Dial, Dial Settings > About shows VERSION and SOURCE; serial ORCDIAL_BOOT also includes the full source commit and build ID. Please include them in bug reports.", "",
                  "Install from the browser: https://theorc.dev/dial/nightly/ (keeps pairing and settings unless you tick Erase device).",
                  f"Flashing the .bin yourself: it is the complete image for address 0x0 and overwrites saved settings and pairing.", "",
                  f"## Changes since {base}", ""]

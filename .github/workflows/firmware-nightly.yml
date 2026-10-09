@@ -43,7 +43,7 @@ jobs:
         run: |
           set -euo pipefail
           sha=$(git rev-parse HEAD)
-          base=$(git describe --tags --match 'v[0-9]*' --abbrev=0 HEAD)
+          base=$(python3 tools/ci/write-build-info.py --base-tag)
           ahead=$(git rev-list --count "$base..HEAD")
           last=""
           if gh release download "$NIGHTLY_TAG" -R "$GITHUB_REPOSITORY" -p build-info.json -O "$RUNNER_TEMP/bi.json" 2>/dev/null; then
