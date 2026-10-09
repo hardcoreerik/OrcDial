@@ -7,20 +7,23 @@ This repository owns the **M5Dial firmware**, dashboard graphics, controller/pro
 
 The first source release is **v0.1.0-beta.1**. See the [changelog](CHANGELOG.md) for its features, validation, and known limits.
 
-## Install OrcSDR on the Tab5
+## Install OrcSDR on the Tab5 (the receiver)
 
-OrcSDR is available through the [M5Burner web flasher](https://burner.m5stack.com/share/firmware/JXFU4H):
+OrcDial needs OrcSDR on the Tab5. Install it from the browser at **[theorc.dev/sdr/flash](https://theorc.dev/sdr/flash/)**:
 
 1. Open the link in **Chrome or Edge** on your computer.
 2. Connect the **Tab5** by USB and close any serial monitor using its port.
-3. Click **Burn to device**, select the Tab5 serial port when prompted, and follow the flasher instructions.
-4. Restart the Tab5 after flashing completes.
+3. Click **Connect & install**, pick the Tab5's serial port and follow the prompts.
 
-**M5Burner installation resets saved settings**, including Wi-Fi profiles, location, and screen rotation. To preserve them, use the Windows settings-preserving installer from [OrcSDR Releases](https://github.com/hardcoreerik/OrcSDR/releases/latest).
+This installer **keeps your saved settings** (Wi-Fi profiles, location, screen rotation, Dial pairing) unless you choose to erase.
 
-This listing installs OrcSDR on the Tab5. For the OrcSDR build requirements for this accessory, see [Pairing](#pairing).
+Alternative: the [M5Burner web flasher](https://burner.m5stack.com/share/firmware/JXFU4H) listing. **M5Burner installation resets saved settings.**
+
+These links install OrcSDR on the Tab5, not OrcDial on the Dial. For the OrcSDR build requirements for this accessory, see [Pairing](#pairing).
 
 ## Build and flash OrcDial on the M5Dial
+
+A browser installer for the Dial is coming to [theorc.dev](https://theorc.dev/). Until then, build and upload with PlatformIO.
 
 Install PlatformIO Core or the PlatformIO IDE extension. From this repository's root:
 
