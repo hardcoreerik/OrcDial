@@ -1,3 +1,4 @@
+<img width="4000" height="1868" alt="660100ea-58fe-48c2-b28c-ddc8ea1810dc" src="https://github.com/user-attachments/assets/cb69187a-8be0-4ed8-9b48-e396d1712da5" />
 # OrcDial
 
 OrcDial is an optional M5Stack M5Dial accessory for [OrcSDR](https://github.com/hardcoreerik/OrcSDR). It uses the encoder, button, touch display, and ESP-NOW to follow the active OrcSDR dashboard and control supported radio functions. OrcSDR remains usable without a Dial.
