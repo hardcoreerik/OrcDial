@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240">
+<title>OrcDial 2.0 conceptual 240 by 240 screen — not live device data</title>
+<defs><clipPath id="disc"><circle cx="120" cy="120" r="113"/></clipPath></defs>
+<rect width="240" height="240" fill="#111827"/>
+<circle cx="120" cy="120" r="115" fill="#0A1522" stroke="#B980E5" stroke-width="3"/>
+<g clip-path="url(#disc)">
+<text x="120" y="38" font-size="18" fill="#C08AED" font-family="sans-serif" text-anchor="middle" font-weight="bold">DEAD AIR</text>
+<rect x="66" y="47" width="108" height="25" rx="8" fill="#163042" stroke="#B980E5" stroke-width="1"/><text x="120" y="63.5" font-size="11" fill="#EFFDFF" font-family="sans-serif" text-anchor="middle" font-weight="bold">OVERVIEW</text>
+<text x="120" y="101" font-size="26" fill="#FFFFFF" font-family="sans-serif" text-anchor="middle" font-weight="bold">RF --</text>
+<text x="120" y="121" font-size="13" fill="#95B1C4" font-family="sans-serif" text-anchor="middle">dBFS unavailable</text>
+<path d="M47 133 H193" stroke="#4B3B62"/>
+<text x="120" y="154" font-size="13" fill="#A7C7D2" font-family="sans-serif" text-anchor="middle">EVENTS --</text>
+<text x="120" y="175" font-size="12" fill="#D2A6EA" font-family="sans-serif" text-anchor="middle">JOURNAL: UNKNOWN</text>
+<rect x="67" y="190" width="106" height="25" rx="8" fill="#163042" stroke="#B980E5" stroke-width="1"/><text x="120" y="206.5" font-size="11" fill="#EFFDFF" font-family="sans-serif" text-anchor="middle" font-weight="bold">OPEN EVENTS</text>
+<text x="120" y="234" text-anchor="middle" font-size="7" fill="#647C8D" font-family="sans-serif">CONCEPT · NOT LIVE DATA</text></g></svg>
