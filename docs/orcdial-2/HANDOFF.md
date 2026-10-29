@@ -11,6 +11,7 @@
 - Read both repositories' relevant public committed sources through authenticated GitHub connector, including existing OrcDial README/protocol/controller/UI, FT8 decoder/model/docs, Dead Air model/app/actions and current Tab5 registry.
 - Verified RSA-Sandbox/REA-Results project instructions before planning cross-repository research.
 - Produced source-pinned baseline/gap analysis, UI interaction proposal, FT8 local decode/map spec, Dead Air six-page semantics, compatibility RFC, opt-in network API/provider comparison and phased implementation/acceptance roadmap.
+- Added six static editable SVG 240x240 conceptual UI mockups under [mockups/](mockups/README.md); not rendered by firmware.
 - Prepared exact local `rsa.py` import/analyze/compare/publish workflow, clearly marked unrun.
 - Preserved all release code and versioned security pairing; no source changes, binary analysis, flashing or merge.
 
