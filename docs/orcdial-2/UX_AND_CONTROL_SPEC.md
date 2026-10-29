@@ -58,6 +58,9 @@ Recommendation: **A for Radio Home; B for an active non-Home dashboard; C for th
 
 ## First UI review pack before firmware
 
+The initial six **static SVG mockups** are now committed at [mockups/README.md](mockups/README.md). They are concept artwork, not live M5GFX screenshots. The user still needs to choose direction and gesture policy before implementation.
+
+
 Create **three native-resolution 240x240 concept families**, each with Radio Home, Context FT8 latest decode, FT8 Map, Dead Air live, Launcher, Offline and Stale. Use actual M5GFX screenshot capture later; initial source-free wireframes are not evidence of firmware rendering. Track review results: legibility at 1:1 physical size; number of interactions from Home to desired action; accidental retune/destructive-press rate; whether primary information is intelligible at a glance.
 
 ## Approved UI criteria (proposed gates)
