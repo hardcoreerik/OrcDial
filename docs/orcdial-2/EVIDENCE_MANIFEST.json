@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-29",
+  "kind": "source_review_only",
+  "release_or_runtime_evidence": false,
+  "repositories": [
+    {
+      "repository": "hardcoreerik/OrcDial",
+      "branch": "main",
+      "commit": "8003aa3d007fe75ca3379eebb7b90f97ec24371d",
+      "reviewed_paths": [
+        "src/dashboard.hpp",
+        "src/controller.hpp",
+        "src/ui.cpp",
+        "src/main.cpp",
+        "src/state.hpp",
+        "src/control/protocol.hpp",
+        "docs/SECURE_PAIRING.md",
+        "docs/ORCDIAL_CONTROL_MATRIX.md",
+        "docs/RELEASE_CHECKS.md",
+        "README.md",
+        "PROTOCOL.md"
+      ]
+    },
+    {
+      "repository": "hardcoreerik/OrcSDR",
+      "branch": "main",
+      "commit": "d2c1b56baeab8a43c2658ca783bbf0b26243ae97",
+      "reviewed_paths": [
+        "apps/orcsdr-tab5/ui/dashboard_registry.hpp",
+        "apps/orcsdr-tab5/ui/ft8_model.hpp",
+        "apps/orcsdr-tab5/ui/ft8_dashboard.hpp",
+        "apps/orcsdr-tab5/ui/dead_air_model.hpp",
+        "apps/orcsdr-tab5/ui/dead_air_dashboard.hpp",
+        "apps/orcsdr-tab5/ui/dead_air_app.cpp",
+        "docs/ft8/FT8_ORCDIAL_DESIGN.md",
+        "docs/dead-air/DEVELOPMENT_HANDOFF.md"
+      ]
+    }
+  ],
+  "provider_docs": [
+    "https://pskreporter.info/pskdev.html",
+    "https://www.mqtt.pskreporter.info/",
+    "https://www.mqtt.pskreporter.info/timing.html",
+    "https://services.swpc.noaa.gov/json/",
+    "https://www.hamqth.com/developers",
+    "https://www.arrl.org/fcc-licensee-privacy",
+    "https://callook.info/api_reference.php"
+  ],
+  "performed": [
+    "GitHub connector file and tree source review",
+    "public provider documentation review",
+    "planning branch and markdown design docs"
+  ],
+  "not_performed": [
+    "local git checkout due to DNS limitation",
+    "rsa.py import/analyze/compare",
+    "REA binary analysis",
+    "host C++ tests",
+    "M5Dial PlatformIO build",
+    "Tab5 IDF build",
+    "two-device ESP-NOW tests",
+    "hardware flash",
+    "live provider API query",
+    "source implementation changes"
+  ],
+  "interpretations_are_not_generated_rsa_metrics": true
+}
