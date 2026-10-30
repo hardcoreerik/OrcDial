@@ -3,6 +3,7 @@
 #include "band_names.hpp"
 #include "version.hpp"
 #include "ui_motion.hpp"
+#include "maidenhead_grid.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -595,6 +596,30 @@ static const char* ft8_band_label(int32_t selected) {
              ? labels[index] : "--";
 }
 
+
+// This graticule plots one verified CQ-associated grid-area center, NOT GPS.
+// No station marker exists if the authenticated receiver supplied no grid.
+static void ft8_locator_map(lgfx::LGFXBase& d, const ft8_projection::Card& card) {
+  const auto area = maidenhead::center(card.grid);
+  if (!area.valid || !(card.flags & ft8_projection::kGridAssociated)) {
+    d.setTextColor(dim, bg); d.setTextSize(1.5f);
+    draw_text(d, "NO REPORTED GRID", 120, 121);
+    return;
+  }
+  d.fillRoundRect(61, 87, 118, 73, 6, 0x0c2536);
+  d.drawRoundRect(61, 87, 118, 73, 6, trace_bright);
+  for (int i = 1; i < 6; ++i) d.drawFastVLine(61 + i * 19, 88, 71, trace);
+  for (int i = 1; i < 3; ++i) d.drawFastHLine(62, 87 + i * 24, 116, trace);
+  const int px = 62 + int((area.longitude + 180.0) / 360.0 * 116.0);
+  const int py = 88 + int((90.0 - area.latitude) / 180.0 * 71.0);
+  d.drawCircle(px, py, 5, cyan);
+  d.fillCircle(px, py, 2, green);
+  char label[32];
+  std::snprintf(label, sizeof label, "%s  AREA CENTER", card.grid);
+  d.setTextColor(green, bg); d.setTextSize(1);
+  draw_text(d, label, 120, 162);
+}
+
 static void ft8_screen(lgfx::LGFXBase& d, const RadioState& state,
                        bool connected, bool pairing, bool demo, bool pending) {
   const uint32_t accent = connected ? green : cyan;
@@ -675,6 +700,11 @@ static void ft8_screen(lgfx::LGFXBase& d, const RadioState& state,
       d.setTextColor(green, bg); d.setTextSize(1); draw_text(d, "TAP: FINE TUNE", 120, 166);
     }
   } else {
+    const bool latest_map = view == static_cast<uint8_t>(ft8_control::View::map) &&
+                            connected && current_ft8_card.valid && state.selected == 1;
+    if (latest_map) {
+      ft8_locator_map(d, current_ft8_card);
+    } else {
     // The first history row is the latest. For other selected rows we retain
     // the index until a receiver-owned selected-record query is implemented.
     const bool latest = view == static_cast<uint8_t>(ft8_control::View::decodes) &&
@@ -695,6 +725,7 @@ static void ft8_screen(lgfx::LGFXBase& d, const RadioState& state,
       d.setTextColor(dim, bg); d.setTextSize(4); draw_text(d, "-- / --", 120, 116);
     }
     if (connected && !latest) frequency(d, state.frequency_hz, 145, 2, dim);
+    }
   }
 
   if (hunter_view) {
