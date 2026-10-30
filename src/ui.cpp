@@ -2,6 +2,7 @@
 #include "controller.hpp"
 #include "band_names.hpp"
 #include "version.hpp"
+#include "ui_motion.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -44,10 +45,11 @@ static const DashboardImage dashboard_images[] = {
   {satellite_start, satellite_end}, {nullptr, nullptr},
   {settings_start, settings_end}, {rf_lab_start, rf_lab_end},
   {wifi_analysis_start, wifi_analysis_end}, {pocsag_start, pocsag_end},
-  {am_start, am_end}, {nullptr, nullptr}
+  {am_start, am_end}, {nullptr, nullptr}, {nullptr, nullptr},
+  {nullptr, nullptr}, {nullptr, nullptr}
 };
 static_assert(sizeof(dashboard_images) / sizeof(dashboard_images[0]) ==
-              static_cast<unsigned>(Dashboard::ft8) + 1);
+              static_cast<unsigned>(Dashboard::dead_air) + 1);
 static constexpr uint32_t ink = 0xe8f5f6, dim = 0x88a4ad, green = 0x70f847;
 static constexpr uint32_t bg = 0x050f16, cyan = 0x38d9ff, blue = 0x319bff, red = 0xff4a4a;
 static constexpr uint32_t panel = 0x0c202b, trace = 0x163747, trace_bright = 0x286174;
@@ -75,18 +77,31 @@ static void present() { if (frame_ready) frame.pushSprite(0, 0); }
 static uint32_t link_color(bool connected) { return connected ? green : red; }
 static uint32_t accent_for(Dashboard id, bool connected) {
   if (!connected) return cyan;
+  if (id == Dashboard::dead_air) return 0xba7dff;
+  if (id == Dashboard::sstv) return 0xffbb6d;
+  if (id == Dashboard::acars) return 0x80c5f9;
   if (id == Dashboard::am || id == Dashboard::cb || id == Dashboard::satellite) return blue;
   if (id == Dashboard::weather || id == Dashboard::airband || id == Dashboard::marine) return cyan;
   return green;
 }
-// Decorative motion only: these traces do not represent RF samples or network activity.
+// Ambient motion is a calm navigation motif, NOT RF energy, receiver lock or scanner activity.
+// Draw bounded rings/lines only; deterministic timing, no heap, no stored frame history.
 static void ambient(lgfx::LGFXBase& d, Dashboard id, uint32_t now) {
-  const int phase = (now / 90 + uint8_t(id) * 19) % 330;
-  d.drawCircle(120, 120, 96, trace);
-  d.drawCircle(120, 120, 103, trace);
-  d.drawArc(120, 120, 106, 104, phase, phase + 26, trace_bright);
-  const float a = phase * 0.017453293f;
-  d.fillCircle(120 + int(100 * cosf(a)), 120 + int(100 * sinf(a)), 2, trace_bright);
+  const uint32_t accent = accent_for(id, true);
+  const uint16_t heading = motion::phase_degrees(now, 9800, uint16_t(uint8_t(id) * 13));
+  const float angle = heading * 0.017453293f;
+  d.drawCircle(120, 120, 91, trace);
+  d.drawCircle(120, 120, 101, trace);
+  for (int i = 0; i < 24; ++i) {
+    const float a = i * 0.261799388f;
+    const int inner = i % 3 == 0 ? 100 : 104;
+    d.drawLine(120 + int(inner * cosf(a)), 120 + int(inner * sinf(a)),
+               120 + int(107 * cosf(a)), 120 + int(107 * sinf(a)), trace_bright);
+  }
+  d.drawArc(120, 120, 108, 106, heading, heading + 27, accent);
+  d.drawArc(120, 120, 108, 106, (heading + 180) % 360, (heading + 201) % 360, trace_bright);
+  d.fillCircle(120 + int(106 * cosf(angle)), 120 + int(106 * sinf(angle)), 2, accent);
+  // No animated field here is an FFT, waterfall, measured level or signal report.
 }
 static void frequency(lgfx::LGFXBase& d, uint32_t hz, int y, int size, uint32_t color) {
   char text[20];
@@ -105,15 +120,17 @@ static void back_button(lgfx::LGFXBase& d);
 static void home_screen(lgfx::LGFXBase& d, const RadioState& state, Focus focus, bool pending, uint32_t now) {
   d.drawCircle(120, 120, 115, link_color(true));
   d.drawCircle(120, 120, 110, 0x1b4e60);
-  // Decorative waveform behind the readout; it does not represent the received signal.
-  for (int k = 0; k < 2; ++k) {
-    int previous = 80;
-    for (int x = 24; x <= 216; x += 4) {
-      const float envelope = sinf((x - 24) * 3.14159f / 192.0f);
-      const float phase = x * (k ? 0.13f : 0.09f) + now * (k ? -0.0021f : 0.0016f);
-      const int y = 80 + int(13 * envelope * sinf(phase));
-      if (x > 24) d.drawLine(x - 4, previous, x, y, k ? 0x1b5e78 : 0x2b8fb0);
-      previous = y;
+  // Flowing aurora ribbons: intentionally decorative, never an RF or audio waveform.
+  // Two slim sine paths stay behind the VFO rather than crossing the digits.
+  const float drift = float(now % 12000) * 0.00075f;
+  for (int layer = 0; layer < 3; ++layer) {
+    int prev_y = 80;
+    for (int x = 34; x <= 206; x += 6) {
+      const float mask = sinf((x - 34) * 3.14159265f / 172.0f);
+      const float phase = (x - 34) * (0.046f + layer * 0.011f) + drift * (layer % 2 ? -1 : 1);
+      const int y = 81 + layer * 8 + int((6 + layer) * mask * sinf(phase));
+      if (x > 34) d.drawLine(x - 6, prev_y, x, y, layer == 0 ? 0x21475c : layer == 1 ? 0x1b364c : 0x173042);
+      prev_y = y;
     }
   }
   static const char* modes[] = {"--", "NFM", "AM", "WFM", "USB", "LSB"};
@@ -128,8 +145,16 @@ static void home_screen(lgfx::LGFXBase& d, const RadioState& state, Focus focus,
     std::snprintf(line, sizeof line, "%lu.%06lu", (unsigned long)(hz / 1000000), (unsigned long)(hz % 1000000));
   d.setTextColor(ink); d.setTextSize(4); draw_text(d, line, 120, 112);
   d.setTextColor(dim); d.setTextSize(1); draw_text(d, "MHz", 120, 140);
-  if (focus == Focus::vfo) d.fillRect(52, 131, 136, 2, green);
-  if (pending) d.fillCircle(206, 112, 3, cyan);
+  if (focus == Focus::vfo) {
+    d.fillRoundRect(61, 144, 118, 2, 1, green);
+    const uint16_t run = motion::phase_degrees(now, 1700);
+    d.drawArc(120, 120, 109, 107, run, run + 22, green);
+  }
+  if (pending) {
+    const uint16_t phase = motion::phase_degrees(now, 900);
+    d.drawArc(120, 120, 109, 107, phase, phase + 40, cyan);
+    d.fillCircle(197, 118, 3, cyan);
+  }
   // One line shows whichever of step, span or filter is focused (step when the frequency or volume is).
   auto width = [](const char* label, uint32_t hz, char* out, size_t size) {
     if (!hz) std::snprintf(out, size, "%s --", label);
@@ -478,20 +503,32 @@ static void selector_icon(lgfx::LGFXBase& d, Dashboard id, int x, int y,
   const auto& image = dashboard_images[index];
   const int size = small ? 30 : 64;
   if (!image.start) {
-    if (id != Dashboard::ft8) return;
-    const uint32_t c = green;
+    if (id != Dashboard::ft8 && id != Dashboard::sstv &&
+        id != Dashboard::acars && id != Dashboard::dead_air) return;
+    const uint32_t c = accent_for(id, true);
     const int left = x - size / 2;
     const int top = y - size / 2;
     d.drawRoundRect(left, top, size, size, small ? 5 : 9, c);
     const int base = top + size * 2 / 3;
-    for (int i=0; i<8; ++i) {
-      const int bx = left + 4 + i * (size - 8) / 8;
-      const int h = 4 + (i * 7 % 5) * (small ? 1 : 2);
-      d.drawFastVLine(bx, base - h, h, c);
+    if (id == Dashboard::ft8) {
+      for (int i=0; i<8; ++i) {
+        const int bx = left + 4 + i * (size - 8) / 8;
+        const int h = 4 + (i * 7 % 5) * (small ? 1 : 2);
+        d.drawFastVLine(bx, base - h, h, c);
+      }
+    } else if (id == Dashboard::dead_air) {
+      d.drawCircle(x, y + (small ? 3 : 8), small ? 6 : 14, c);
+      d.drawArc(x, y + (small ? 3 : 8), small ? 11 : 23, small ? 10 : 22, 210, 330, c);
+    } else if (id == Dashboard::sstv) {
+      d.drawRoundRect(left + 6, top + size/2, size - 12, size/3, 3, c);
+      d.drawLine(left + 12, top + size*2/3, left + size/2, top + size/2 + 3, c);
+    } else { // ACARS: data uplink marks, not an aircraft detection
+      for (int i=0; i<3; ++i) d.drawFastVLine(x + (i-1)*size/6, top + size/2, size/4, c);
     }
     if (!small) {
-      d.setTextColor(ink, bg); d.setTextSize(2);
-      draw_text(d, "FT8", x, top + 19, size - 8);
+      d.setTextColor(ink, bg); d.setTextSize(id == Dashboard::dead_air ? 1.5f : 2);
+      draw_text(d, id == Dashboard::ft8 ? "FT8" : id == Dashboard::sstv ? "SSTV" :
+                id == Dashboard::acars ? "ACARS" : "DEAD AIR", x, top + 18, size - 8);
     }
     return;
   }
@@ -506,7 +543,9 @@ static const char* content_view(Dashboard id, uint8_t view) {
   static const char* pocsag[] = {"LIVE", "IDS", "SIGNAL", "ACTIVITY", "ARCHIVE"};
   static const char* wifi[] = {"OVERVIEW", "CHANNELS", "DEVICES", "CSI", "SETTINGS"};
   static const char* ft8[] = {"LIVE", "DECODES", "MAP", "HUNTER", "HEARD", "SETUP"};
+  static const char* dead[] = {"OVERVIEW", "SPECTRUM", "AUDIO", "ENV", "EVENTS", "REVIEW"};
   if (id == Dashboard::ft8) return view < 6 ? ft8[view] : "VIEW --";
+  if (id == Dashboard::dead_air) return view < 6 ? dead[view] : "VIEW --";
   if (view >= 5) return "VIEW --";
   switch (id) {
     case Dashboard::adsb: return adsb[view];
@@ -656,6 +695,37 @@ static void ft8_screen(lgfx::LGFXBase& d, const RadioState& state,
     d.setTextColor(pending ? cyan : ink, bg);
     draw_text(d, ft8_control::hunter_press_name(state.capabilities), 120, 198);
   }
+}
+
+
+// Dead Air v1 companion shell. No synthesized detector readings: the current
+// v4 RadioState has no spectrum, audio, environment or event-count projection.
+// Keep actions disabled until the Tab5 installs a matching semantic dispatcher.
+static void dead_air_screen(lgfx::LGFXBase& d, const RadioState& state,
+                            bool connected, bool pending, uint32_t now) {
+  constexpr uint32_t violet = 0xba7dff, muted = 0x856b9e;
+  d.drawCircle(120, 120, 116, link_color(connected));
+  d.drawArc(120, 120, 110, 107, motion::phase_degrees(now, 6200),
+            motion::phase_degrees(now, 6200) + 35, violet);
+  d.setTextColor(violet, bg); d.setTextSize(2.5f);
+  draw_text(d, "DEAD AIR", 120, 36);
+  d.fillRoundRect(64, 57, 112, 23, 8, panel);
+  d.drawRoundRect(64, 57, 112, 23, 8, violet);
+  d.setTextColor(ink, panel); d.setTextSize(1.5f);
+  draw_text(d, content_view(Dashboard::dead_air, state.view), 120, 69);
+  // Time-varying bracket is deliberately a UI activity indicator, not RF.
+  const uint8_t pulse = motion::breath(now, 2700);
+  const int glow = 13 + int(pulse) / 28;
+  d.drawCircle(120, 121, glow, muted);
+  d.drawCircle(120, 121, glow + 8, trace_bright);
+  d.drawLine(120-glow-14, 121, 120-glow-5, 121, violet);
+  d.drawLine(120+glow+5, 121, 120+glow+14, 121, violet);
+  d.setTextColor(connected ? ink : dim, bg); d.setTextSize(2);
+  draw_text(d, connected ? "NO DATA LINK" : "OFFLINE", 120, 163);
+  d.setTextColor(dim, bg); d.setTextSize(1);
+  draw_text(d, "MEASUREMENTS: --", 120, 183);
+  if (pending) { d.setTextColor(cyan, bg); draw_text(d, "ACTION PENDING", 120, 194); }
+  back_button(d);
 }
 
 static void draw_splash(lgfx::LGFXBase& d, bool wait) {
@@ -837,6 +907,10 @@ void draw(const RadioState& state, Focus focus, bool connected, bool pairing,
   }
   if (state.dashboard == Dashboard::ft8) {
     ft8_screen(d, state, connected, pairing, demo, pending_delta);
+    present(); return;
+  }
+  if (state.dashboard == Dashboard::dead_air) {
+    dead_air_screen(d, state, connected, pending_delta, now);
     present(); return;
   }
   const auto dashboard = state.dashboard;
