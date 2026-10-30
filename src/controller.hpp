@@ -66,6 +66,10 @@ inline Action rotate(Dashboard id, uint8_t view, Focus focus, int detents,
   }
 }
 inline Action press(Dashboard id, uint8_t view, uint32_t capabilities = 0) {
+  // The v4 receiver does not yet advertise safe semantic control support for these
+  // new dashboards. A named visual shell must not issue implicit remote commands.
+  if (id == Dashboard::dead_air || id == Dashboard::acars || id == Dashboard::sstv)
+    return {};
   if (id == Dashboard::ft8) {
     if (view == static_cast<uint8_t>(ft8_control::View::live) ||
         view == static_cast<uint8_t>(ft8_control::View::hunter)) {
