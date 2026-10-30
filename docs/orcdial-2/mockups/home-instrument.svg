@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240">
+<title>OrcDial 2.0 conceptual 240 by 240 screen — not live device data</title>
+<defs><clipPath id="disc"><circle cx="120" cy="120" r="113"/></clipPath></defs>
+<rect width="240" height="240" fill="#111827"/>
+<circle cx="120" cy="120" r="115" fill="#0A1522" stroke="#28C7A0" stroke-width="3"/>
+<g clip-path="url(#disc)">
+<circle cx="120" cy="120" r="108" fill="none" stroke="#24475A" stroke-width="1"/>
+<text x="120" y="36" font-size="13" fill="#74D9EF" font-family="sans-serif" text-anchor="middle" font-weight="bold">RADIO HOME</text>
+<text x="120" y="55" font-size="15" fill="#56E1AE" font-family="sans-serif" text-anchor="middle">SHORTWAVE · USB</text>
+<text x="120" y="110" font-size="37" fill="#FFFFFF" font-family="sans-serif" text-anchor="middle" font-weight="bold">7.100</text>
+<text x="120" y="134" font-size="12" fill="#8FB5C6" font-family="sans-serif" text-anchor="middle">MHz</text>
+<path d="M41 143 H199" stroke="#3A6476"/>
+<text x="120" y="161" font-size="14" fill="#5DDABC" font-family="sans-serif" text-anchor="middle">STEP 1 kHz</text>
+<text x="120" y="181" font-size="12" fill="#A4C4D2" font-family="sans-serif" text-anchor="middle">VOL 48%</text>
+<rect x="73" y="194" width="94" height="25" rx="8" fill="#163042" stroke="#4ED4E6" stroke-width="1"/><text x="120" y="210.5" font-size="11" fill="#EFFDFF" font-family="sans-serif" text-anchor="middle" font-weight="bold">FOCUS: TUNE</text>
+<text x="120" y="234" text-anchor="middle" font-size="7" fill="#647C8D" font-family="sans-serif">CONCEPT · NOT LIVE DATA</text></g></svg>

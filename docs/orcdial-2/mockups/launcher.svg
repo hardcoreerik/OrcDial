@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240">
+<title>OrcDial 2.0 conceptual 240 by 240 screen — not live device data</title>
+<defs><clipPath id="disc"><circle cx="120" cy="120" r="113"/></clipPath></defs>
+<rect width="240" height="240" fill="#111827"/>
+<circle cx="120" cy="120" r="115" fill="#0A1522" stroke="#28C7A0" stroke-width="3"/>
+<g clip-path="url(#disc)">
+<text x="120" y="35" font-size="15" fill="#65DCEB" font-family="sans-serif" text-anchor="middle" font-weight="bold">ORCDIAL</text>
+<text x="120" y="54" font-size="11" fill="#C4D3DF" font-family="sans-serif" text-anchor="middle">QUICK LAUNCH</text>
+<circle cx="65" cy="109" r="30" fill="#193647" stroke="#54CBE1" stroke-width="1.5"/>
+<circle cx="175" cy="109" r="30" fill="#193647" stroke="#54CBE1" stroke-width="1.5"/>
+<circle cx="120" cy="167" r="31" fill="#312044" stroke="#AE82E4" stroke-width="1.5"/>
+<text x="65" y="115" font-size="16" fill="#FFFFFF" font-family="sans-serif" text-anchor="middle" font-weight="bold">FM</text>
+<text x="175" y="115" font-size="16" fill="#FFFFFF" font-family="sans-serif" text-anchor="middle" font-weight="bold">FT8</text>
+<text x="120" y="165" font-size="11" fill="#EACDFB" font-family="sans-serif" text-anchor="middle" font-weight="bold">DEAD AIR</text>
+<text x="120" y="178" font-size="9" fill="#BFA9D3" font-family="sans-serif" text-anchor="middle">EVENTS</text>
+<text x="120" y="213" font-size="11" fill="#ACCAD6" font-family="sans-serif" text-anchor="middle">TURN TO SELECT</text>
+<text x="120" y="234" text-anchor="middle" font-size="7" fill="#647C8D" font-family="sans-serif">CONCEPT · NOT LIVE DATA</text></g></svg>

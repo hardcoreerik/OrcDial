@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240">
+<title>OrcDial 2.0 conceptual 240 by 240 screen — not live device data</title>
+<defs><clipPath id="disc"><circle cx="120" cy="120" r="113"/></clipPath></defs>
+<rect width="240" height="240" fill="#111827"/>
+<circle cx="120" cy="120" r="115" fill="#0A1522" stroke="#28C7A0" stroke-width="3"/>
+<g clip-path="url(#disc)">
+<text x="120" y="36" font-size="15" fill="#65D8EB" font-family="sans-serif" text-anchor="middle" font-weight="bold">FT8 · 20m</text>
+<rect x="59" y="45" width="122" height="25" rx="8" fill="#163042" stroke="#4ED4E6" stroke-width="1"/><text x="120" y="61.5" font-size="11" fill="#EFFDFF" font-family="sans-serif" text-anchor="middle" font-weight="bold">LATEST DECODE</text>
+<text x="120" y="104" font-size="32" fill="#FFFFFF" font-family="sans-serif" text-anchor="middle" font-weight="bold">W1AW</text>
+<text x="120" y="126" font-size="14" fill="#B2CBD8" font-family="sans-serif" text-anchor="middle">GRID FN31</text>
+<text x="120" y="149" font-size="17" fill="#65E2AF" font-family="sans-serif" text-anchor="middle" font-weight="bold">SNR −12 dB</text>
+<text x="120" y="171" font-size="12" fill="#A2B9CB" font-family="sans-serif" text-anchor="middle">14.074 MHz · FT8</text>
+<rect x="69" y="185" width="102" height="27" rx="8" fill="#163042" stroke="#4ED4E6" stroke-width="1"/><text x="120" y="202.5" font-size="11" fill="#EFFDFF" font-family="sans-serif" text-anchor="middle" font-weight="bold">VIEW LOCATION</text>
+<text x="120" y="234" text-anchor="middle" font-size="7" fill="#647C8D" font-family="sans-serif">CONCEPT · NOT LIVE DATA</text></g></svg>

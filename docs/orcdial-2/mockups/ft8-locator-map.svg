@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240">
+<title>OrcDial 2.0 conceptual 240 by 240 screen — not live device data</title>
+<defs><clipPath id="disc"><circle cx="120" cy="120" r="113"/></clipPath></defs>
+<rect width="240" height="240" fill="#111827"/>
+<circle cx="120" cy="120" r="115" fill="#0A1522" stroke="#28C7A0" stroke-width="3"/>
+<g clip-path="url(#disc)">
+<text x="120" y="34" font-size="15" fill="#6DDDEF" font-family="sans-serif" text-anchor="middle" font-weight="bold">FT8 · GRID MAP</text>
+<rect x="28" y="47" width="184" height="124" rx="6" fill="#11273A" stroke="#355D76"/>
+<g stroke="#29475D" stroke-width="0.8"><path d="M28 78H212 M28 109H212 M28 140H212 M59 47V171 M90 47V171 M121 47V171 M152 47V171 M183 47V171"/></g>
+<g fill="#3B637A" stroke="#7194A6" stroke-width=".7">
+<path d="M30 79 L48 62 L68 67 L77 87 L69 99 L54 110 L44 99 Z"/>
+<path d="M59 111 L78 118 L85 136 L73 166 L65 151 Z"/>
+<path d="M106 75 L120 68 L131 78 L126 92 L116 94 L119 110 L133 139 L116 154 L108 127 L104 102 Z"/>
+<path d="M132 73 L156 61 L202 73 L207 97 L185 112 L171 99 L146 112 Z"/>
+</g>
+<circle cx="50" cy="87" r="4" fill="#3EEBC4"/><circle cx="117" cy="88" r="4" fill="#F7CB73"/><circle cx="183" cy="91" r="4" fill="#F7CB73"/>
+<text x="120" y="184" font-size="12" fill="#A8C7D7" font-family="sans-serif" text-anchor="middle">REPORTED GRID CENTERS</text>
+<rect x="65" y="194" width="110" height="25" rx="8" fill="#163042" stroke="#4ED4E6" stroke-width="1"/><text x="120" y="210.5" font-size="11" fill="#EFFDFF" font-family="sans-serif" text-anchor="middle" font-weight="bold">TURN: SELECT</text>
+<text x="120" y="234" text-anchor="middle" font-size="7" fill="#647C8D" font-family="sans-serif">CONCEPT · NOT LIVE DATA</text></g></svg>
