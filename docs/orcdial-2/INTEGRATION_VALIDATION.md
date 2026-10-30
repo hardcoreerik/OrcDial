@@ -104,3 +104,12 @@ this continuation; COM14 still has the earlier `eb34e83` slice.
 The implemented projection is latest-only. Selected history, multi-station maps,
 distance/bearing and other dashboard projections remain future work. No physical
 FT8 end-to-end milestone or release readiness is claimed.
+
+
+## Subsequent authorized hardware session
+
+Both matching applications have now been flashed and re-paired. The Dial boot
+source/clean flag, both flash hashes, matching pairing codes and an encrypted
+control/acknowledgement round trip were verified. The preceding no-flash statements
+describe the host-validation session. Live on-air FT8 and physical UI acceptance
+remain open. See [hardware evidence](https://github.com/hardcoreerik/OrcSDR/blob/chatgpt/orcdial-2-ft8-projection-20261029/docs/ORCDIAL_FT8_HARDWARE_2026-10-30.md).

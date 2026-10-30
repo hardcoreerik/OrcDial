@@ -125,3 +125,15 @@ g++ -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -Iapps/orcsdr-tab5/ui \
 
 Current exact source commits, firmware hashes, host/build results and unclosed
 hardware gates: [integration validation](INTEGRATION_VALIDATION.md).
+
+
+## Subsequent authorized flash and pairing
+
+Both matching builds are now installed: Tab5 COM17 from `8c1eb23a` and Dial COM14
+from `ca2a25b` (Dial boot source and clean flag verified). New pairing codes
+matched; both devices report Connected under protocol 4. A Home dashboard command
+received authoritative acknowledgement 76 with no frequency change. Live FT8
+remains untested pending antenna/band confirmation.
+
+[Detailed hardware evidence](https://github.com/hardcoreerik/OrcSDR/blob/chatgpt/orcdial-2-ft8-projection-20261029/docs/ORCDIAL_FT8_HARDWARE_2026-10-30.md)
+records recovery hashes, flash verification, pairing and control results.
