@@ -28,7 +28,8 @@ int main() {
   assert(ft8_projection::decode_text(text, decoded));
   assert(decoded.message_received && std::strcmp(decoded.message, "CQ W1AW FN31") == 0);
   assert(!ft8_projection::decode_text(brief, decoded));
-  auto tampered = text;
+  uint8_t tampered[packet_size]{};
+  std::memcpy(tampered, text, packet_size);
   tampered[20] ^= 1;
   assert(!ft8_projection::decode_text(tampered, decoded)); // CRC check
   put32(text + 12, 809); put32(text + 60, crc32(text,60));
