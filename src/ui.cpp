@@ -2,12 +2,21 @@
 #include "controller.hpp"
 #include "band_names.hpp"
 #include "version.hpp"
+#include "ui_motion.hpp"
+#include "maidenhead_grid.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
 
 namespace orc {
+static ft8_projection::Card current_ft8_card{};
+void ft8_state(const ft8_projection::Card& card) { current_ft8_card = card; }
+static sound::Settings current_sound;
+static bool sstv_tune = false;
+static uint8_t sstv_confirmation = 0;
+void sstv_view(bool tune, uint8_t confirmation) { sstv_tune=tune;sstv_confirmation=confirmation; }
+void sound_state(const sound::Settings& settings) { current_sound = settings; }
 static secure::Status device_status;
 static int device_selection=0;
 static bool device_forget_confirmation=false;
@@ -44,10 +53,11 @@ static const DashboardImage dashboard_images[] = {
   {satellite_start, satellite_end}, {nullptr, nullptr},
   {settings_start, settings_end}, {rf_lab_start, rf_lab_end},
   {wifi_analysis_start, wifi_analysis_end}, {pocsag_start, pocsag_end},
-  {am_start, am_end}, {nullptr, nullptr}
+  {am_start, am_end}, {nullptr, nullptr}, {nullptr, nullptr},
+  {nullptr, nullptr}, {nullptr, nullptr}
 };
 static_assert(sizeof(dashboard_images) / sizeof(dashboard_images[0]) ==
-              static_cast<unsigned>(Dashboard::ft8) + 1);
+              static_cast<unsigned>(Dashboard::dead_air) + 1);
 static constexpr uint32_t ink = 0xe8f5f6, dim = 0x88a4ad, green = 0x70f847;
 static constexpr uint32_t bg = 0x050f16, cyan = 0x38d9ff, blue = 0x319bff, red = 0xff4a4a;
 static constexpr uint32_t panel = 0x0c202b, trace = 0x163747, trace_bright = 0x286174;
@@ -70,23 +80,48 @@ static void draw_text(lgfx::LGFXBase& d, const char* text, int x, int y, int wid
 }
 static M5Canvas frame(&M5Dial.Display);
 static bool frame_attempted = false, frame_ready = false;
-static void present() { if (frame_ready) frame.pushSprite(0, 0); }
+static void present() {
+  auto& d = frame_ready ? static_cast<lgfx::LGFXBase&>(frame) : static_cast<lgfx::LGFXBase&>(M5Dial.Display);
+  const uint32_t color = sound::muted(current_sound) ? red : current_sound.enabled ? green : dim;
+  d.fillRoundRect(21, 56, 19, 21, 4, panel);
+  d.fillRect(24, 63, 3, 6, color);
+  d.fillTriangle(27, 63, 31, 59, 31, 73, color);
+  if (sound::muted(current_sound)) {
+    d.drawLine(33, 62, 38, 70, color); d.drawLine(33, 70, 38, 62, color);
+  } else {
+    d.drawLine(34, 62, 37, 64, color); d.drawLine(37, 64, 37, 68, color); d.drawLine(37, 68, 34, 70, color);
+  }
+  if (frame_ready) frame.pushSprite(0, 0);
+}
 // The outermost ring shows link state on every screen: green when linked, red when offline.
 static uint32_t link_color(bool connected) { return connected ? green : red; }
 static uint32_t accent_for(Dashboard id, bool connected) {
   if (!connected) return cyan;
+  if (id == Dashboard::dead_air) return 0xba7dff;
+  if (id == Dashboard::sstv) return 0xffbb6d;
+  if (id == Dashboard::acars) return 0x80c5f9;
   if (id == Dashboard::am || id == Dashboard::cb || id == Dashboard::satellite) return blue;
   if (id == Dashboard::weather || id == Dashboard::airband || id == Dashboard::marine) return cyan;
   return green;
 }
-// Decorative motion only: these traces do not represent RF samples or network activity.
+// Ambient motion is a calm navigation motif, NOT RF energy, receiver lock or scanner activity.
+// Draw bounded rings/lines only; deterministic timing, no heap, no stored frame history.
 static void ambient(lgfx::LGFXBase& d, Dashboard id, uint32_t now) {
-  const int phase = (now / 90 + uint8_t(id) * 19) % 330;
-  d.drawCircle(120, 120, 96, trace);
-  d.drawCircle(120, 120, 103, trace);
-  d.drawArc(120, 120, 106, 104, phase, phase + 26, trace_bright);
-  const float a = phase * 0.017453293f;
-  d.fillCircle(120 + int(100 * cosf(a)), 120 + int(100 * sinf(a)), 2, trace_bright);
+  const uint32_t accent = accent_for(id, true);
+  const uint16_t heading = motion::phase_degrees(now, 9800, uint16_t(uint8_t(id) * 13));
+  const float angle = heading * 0.017453293f;
+  d.drawCircle(120, 120, 91, trace);
+  d.drawCircle(120, 120, 101, trace);
+  for (int i = 0; i < 24; ++i) {
+    const float a = i * 0.261799388f;
+    const int inner = i % 3 == 0 ? 100 : 104;
+    d.drawLine(120 + int(inner * cosf(a)), 120 + int(inner * sinf(a)),
+               120 + int(107 * cosf(a)), 120 + int(107 * sinf(a)), trace_bright);
+  }
+  d.drawArc(120, 120, 108, 106, heading, heading + 27, accent);
+  d.drawArc(120, 120, 108, 106, (heading + 180) % 360, (heading + 201) % 360, trace_bright);
+  d.fillCircle(120 + int(106 * cosf(angle)), 120 + int(106 * sinf(angle)), 2, accent);
+  // No animated field here is an FFT, waterfall, measured level or signal report.
 }
 static void frequency(lgfx::LGFXBase& d, uint32_t hz, int y, int size, uint32_t color) {
   char text[20];
@@ -105,15 +140,17 @@ static void back_button(lgfx::LGFXBase& d);
 static void home_screen(lgfx::LGFXBase& d, const RadioState& state, Focus focus, bool pending, uint32_t now) {
   d.drawCircle(120, 120, 115, link_color(true));
   d.drawCircle(120, 120, 110, 0x1b4e60);
-  // Decorative waveform behind the readout; it does not represent the received signal.
-  for (int k = 0; k < 2; ++k) {
-    int previous = 80;
-    for (int x = 24; x <= 216; x += 4) {
-      const float envelope = sinf((x - 24) * 3.14159f / 192.0f);
-      const float phase = x * (k ? 0.13f : 0.09f) + now * (k ? -0.0021f : 0.0016f);
-      const int y = 80 + int(13 * envelope * sinf(phase));
-      if (x > 24) d.drawLine(x - 4, previous, x, y, k ? 0x1b5e78 : 0x2b8fb0);
-      previous = y;
+  // Flowing aurora ribbons: intentionally decorative, never an RF or audio waveform.
+  // Two slim sine paths stay behind the VFO rather than crossing the digits.
+  const float drift = float(now % 12000) * 0.00075f;
+  for (int layer = 0; layer < 3; ++layer) {
+    int prev_y = 80;
+    for (int x = 34; x <= 206; x += 6) {
+      const float mask = sinf((x - 34) * 3.14159265f / 172.0f);
+      const float phase = (x - 34) * (0.046f + layer * 0.011f) + drift * (layer % 2 ? -1 : 1);
+      const int y = 81 + layer * 8 + int((6 + layer) * mask * sinf(phase));
+      if (x > 34) d.drawLine(x - 6, prev_y, x, y, layer == 0 ? 0x21475c : layer == 1 ? 0x1b364c : 0x173042);
+      prev_y = y;
     }
   }
   static const char* modes[] = {"--", "NFM", "AM", "WFM", "USB", "LSB"};
@@ -128,8 +165,16 @@ static void home_screen(lgfx::LGFXBase& d, const RadioState& state, Focus focus,
     std::snprintf(line, sizeof line, "%lu.%06lu", (unsigned long)(hz / 1000000), (unsigned long)(hz % 1000000));
   d.setTextColor(ink); d.setTextSize(4); draw_text(d, line, 120, 112);
   d.setTextColor(dim); d.setTextSize(1); draw_text(d, "MHz", 120, 140);
-  if (focus == Focus::vfo) d.fillRect(52, 131, 136, 2, green);
-  if (pending) d.fillCircle(206, 112, 3, cyan);
+  if (focus == Focus::vfo) {
+    d.fillRoundRect(61, 144, 118, 2, 1, green);
+    const uint16_t run = motion::phase_degrees(now, 1700);
+    d.drawArc(120, 120, 109, 107, run, run + 22, green);
+  }
+  if (pending) {
+    const uint16_t phase = motion::phase_degrees(now, 900);
+    d.drawArc(120, 120, 109, 107, phase, phase + 40, cyan);
+    d.fillCircle(197, 118, 3, cyan);
+  }
   // One line shows whichever of step, span or filter is focused (step when the frequency or volume is).
   auto width = [](const char* label, uint32_t hz, char* out, size_t size) {
     if (!hz) std::snprintf(out, size, "%s --", label);
@@ -200,7 +245,7 @@ void settings_state(const SettingsView& view) { settings_view = view; }
 static void settings_row(lgfx::LGFXBase& d, int y, const char* label, const char* value, bool focused) {
   if (focused) d.fillRoundRect(22, y - 15, 196, 30, 8, panel);
   d.setTextSize(1.5f);
-  d.setTextDatum(middle_left); d.setTextColor(focused ? cyan : dim); d.drawString(label, 34, y);
+  d.setTextDatum(middle_left); d.setTextColor(focused ? cyan : dim); d.drawString(label, 46, y);
   d.setTextDatum(middle_right); d.setTextColor(focused ? ink : dim); d.drawString(value, 206, y);
   d.setTextDatum(middle_center);
 }
@@ -257,6 +302,20 @@ static void settings_page_screen(lgfx::LGFXBase& d, bool connected) {
       settings_row(d, 112, "REVERSE", v.settings.invert ? "ON" : "OFF", v.row == 1);
       settings_row(d, 146, "CLICK", v.settings.click ? "ON" : "OFF", v.row == 2);
       line(176, dim, "TURN: CHANGE   PRESS: NEXT");
+      break;
+    }
+    case Page::sound: {
+      const char* labels[] = {"ALERTS", "MUTE ALL", "VOLUME", "RX START", "RX COMPLETE", "IMAGE SAVED", "ERRORS", "LINK LOST"};
+      for (int offset = -1; offset <= 1; ++offset) {
+        const int row = (v.row + offset + 8) % 8;
+        const char* value;
+        if (row == 0) value = v.settings.sound.enabled ? "ON" : "OFF";
+        else if (row == 1) value = v.settings.sound.muted ? "ON" : "OFF";
+        else if (row == 2) { std::snprintf(a, sizeof a, "%u%%", unsigned(v.settings.sound.volume) * 100 / 255); value = a; }
+        else value = v.settings.sound.events & (1u << (row-3)) ? "ON" : "OFF";
+        settings_row(d, 78 + (offset+1)*34, labels[row], value, offset == 0);
+      }
+      line(176, dim, "TURN: CHANGE / PRESS: NEXT");
       break;
     }
     case Page::about: {
@@ -478,20 +537,32 @@ static void selector_icon(lgfx::LGFXBase& d, Dashboard id, int x, int y,
   const auto& image = dashboard_images[index];
   const int size = small ? 30 : 64;
   if (!image.start) {
-    if (id != Dashboard::ft8) return;
-    const uint32_t c = green;
+    if (id != Dashboard::ft8 && id != Dashboard::sstv &&
+        id != Dashboard::acars && id != Dashboard::dead_air) return;
+    const uint32_t c = accent_for(id, true);
     const int left = x - size / 2;
     const int top = y - size / 2;
     d.drawRoundRect(left, top, size, size, small ? 5 : 9, c);
     const int base = top + size * 2 / 3;
-    for (int i=0; i<8; ++i) {
-      const int bx = left + 4 + i * (size - 8) / 8;
-      const int h = 4 + (i * 7 % 5) * (small ? 1 : 2);
-      d.drawFastVLine(bx, base - h, h, c);
+    if (id == Dashboard::ft8) {
+      for (int i=0; i<8; ++i) {
+        const int bx = left + 4 + i * (size - 8) / 8;
+        const int h = 4 + (i * 7 % 5) * (small ? 1 : 2);
+        d.drawFastVLine(bx, base - h, h, c);
+      }
+    } else if (id == Dashboard::dead_air) {
+      d.drawCircle(x, y + (small ? 3 : 8), small ? 6 : 14, c);
+      d.drawArc(x, y + (small ? 3 : 8), small ? 11 : 23, small ? 10 : 22, 210, 330, c);
+    } else if (id == Dashboard::sstv) {
+      d.drawRoundRect(left + 6, top + size/2, size - 12, size/3, 3, c);
+      d.drawLine(left + 12, top + size*2/3, left + size/2, top + size/2 + 3, c);
+    } else { // ACARS: data uplink marks, not an aircraft detection
+      for (int i=0; i<3; ++i) d.drawFastVLine(x + (i-1)*size/6, top + size/2, size/4, c);
     }
     if (!small) {
-      d.setTextColor(ink, bg); d.setTextSize(2);
-      draw_text(d, "FT8", x, top + 19, size - 8);
+      d.setTextColor(ink, bg); d.setTextSize(id == Dashboard::dead_air ? 1.5f : 2);
+      draw_text(d, id == Dashboard::ft8 ? "FT8" : id == Dashboard::sstv ? "SSTV" :
+                id == Dashboard::acars ? "ACARS" : "DEAD AIR", x, top + 18, size - 8);
     }
     return;
   }
@@ -506,7 +577,9 @@ static const char* content_view(Dashboard id, uint8_t view) {
   static const char* pocsag[] = {"LIVE", "IDS", "SIGNAL", "ACTIVITY", "ARCHIVE"};
   static const char* wifi[] = {"OVERVIEW", "CHANNELS", "DEVICES", "CSI", "SETTINGS"};
   static const char* ft8[] = {"LIVE", "DECODES", "MAP", "HUNTER", "HEARD", "SETUP"};
+  static const char* dead[] = {"OVERVIEW", "SPECTRUM", "AUDIO", "ENV", "EVENTS", "REVIEW"};
   if (id == Dashboard::ft8) return view < 6 ? ft8[view] : "VIEW --";
+  if (id == Dashboard::dead_air) return view < 6 ? dead[view] : "VIEW --";
   if (view >= 5) return "VIEW --";
   switch (id) {
     case Dashboard::adsb: return adsb[view];
@@ -552,6 +625,30 @@ static const char* ft8_band_label(int32_t selected) {
   const int index = static_cast<int>(selected) - 1;
   return index >= 0 && index < static_cast<int>(sizeof(labels)/sizeof(labels[0]))
              ? labels[index] : "--";
+}
+
+
+// This graticule plots one verified CQ-associated grid-area center, NOT GPS.
+// No station marker exists if the authenticated receiver supplied no grid.
+static void ft8_locator_map(lgfx::LGFXBase& d, const ft8_projection::Card& card) {
+  const auto area = maidenhead::center(card.grid);
+  if (!area.valid || !(card.flags & ft8_projection::kGridAssociated)) {
+    d.setTextColor(dim, bg); d.setTextSize(1.5f);
+    draw_text(d, "NO REPORTED GRID", 120, 121);
+    return;
+  }
+  d.fillRoundRect(61, 87, 118, 73, 6, 0x0c2536);
+  d.drawRoundRect(61, 87, 118, 73, 6, trace_bright);
+  for (int i = 1; i < 6; ++i) d.drawFastVLine(61 + i * 19, 88, 71, trace);
+  for (int i = 1; i < 3; ++i) d.drawFastHLine(62, 87 + i * 24, 116, trace);
+  const int px = 62 + int((area.longitude + 180.0) / 360.0 * 116.0);
+  const int py = 88 + int((90.0 - area.latitude) / 180.0 * 71.0);
+  d.drawCircle(px, py, 5, cyan);
+  d.fillCircle(px, py, 2, green);
+  char label[32];
+  std::snprintf(label, sizeof label, "%s  AREA CENTER", card.grid);
+  d.setTextColor(green, bg); d.setTextSize(1);
+  draw_text(d, label, 120, 162);
 }
 
 static void ft8_screen(lgfx::LGFXBase& d, const RadioState& state,
@@ -603,25 +700,73 @@ static void ft8_screen(lgfx::LGFXBase& d, const RadioState& state,
     d.setTextColor(green, bg); d.setTextSize(1.5f); draw_text(d, line, 120, 172);
     d.setTextColor(dim, bg); d.setTextSize(1); draw_text(d, "TAP: BAND", 120, 188);
   } else if (live_or_hunter) {
-    d.setTextColor(ink, bg); d.setTextSize(4);
-    draw_text(d, connected ? ft8_band_label(state.selected) : "--", 120, 108);
-    if (connected) frequency(d, state.frequency_hz, 135, 2, cyan);
-    else {
-      d.setTextColor(dim, bg); d.setTextSize(2); draw_text(d, "--.---", 120, 135);
+    if (!hunter_view && connected && current_ft8_card.valid &&
+        current_ft8_card.dial_hz == state.frequency_hz) {
+      // Keep receiver-owned tuning context visible even while a decode is shown.
+      const auto& card = current_ft8_card;
+      const uint32_t hz = state.frequency_hz;
+      if (hz % 1000 == 0)
+        std::snprintf(line, sizeof line, "%s  %lu.%03lu MHz", ft8_band_label(state.selected),
+                      (unsigned long)(hz / 1000000), (unsigned long)(hz / 1000 % 1000));
+      else
+        std::snprintf(line, sizeof line, "%s  %lu.%06lu MHz", ft8_band_label(state.selected),
+                      (unsigned long)(hz / 1000000), (unsigned long)(hz % 1000000));
+      d.setTextColor(cyan, bg); d.setTextSize(2);
+      draw_text(d, line, 120, 100, 190);
+      d.setTextColor(ink, bg); d.setTextSize(3);
+      draw_text(d, card.callsign[0] ? card.callsign : "TEXT", 120, 121);
+      char summary[44];
+      const bool have_grid = (card.flags & ft8_projection::kGridAssociated) && card.grid[0];
+      if (have_grid && (card.flags & ft8_projection::kSnrValid))
+        std::snprintf(summary, sizeof summary, "%.8s  SNR %d", card.grid, int(card.snr_db));
+      else if (have_grid) std::snprintf(summary, sizeof summary, "GRID %.8s", card.grid);
+      else if (card.flags & ft8_projection::kSnrValid)
+        std::snprintf(summary, sizeof summary, "SNR %d dB", int(card.snr_db));
+      else std::snprintf(summary, sizeof summary, "LOCAL DECODE");
+      d.setTextColor(green, bg); d.setTextSize(1.25f);
+      draw_text(d, summary, 120, 142);
+      d.setTextColor(dim, bg); d.setTextSize(1);
+      draw_text(d, card.message_received && card.message[0] ? card.message : "LOCAL RX", 120, 156);
+    } else {
+      d.setTextColor(ink, bg); d.setTextSize(4);
+      draw_text(d, connected ? ft8_band_label(state.selected) : "--", 120, 108);
+      if (connected) frequency(d, state.frequency_hz, 135, 2, cyan);
+      else {
+        d.setTextColor(dim, bg); d.setTextSize(2); draw_text(d, "--.---", 120, 135);
+      }
+      d.setTextColor(dim, bg); d.setTextSize(1); draw_text(d, "MHz", 120, 151);
     }
-    d.setTextColor(dim, bg); d.setTextSize(1); draw_text(d, "MHz", 120, 151);
-    if (connected && (state.capabilities & ft8_control::kExpertEnabled)) {   // expert tuning is on: a centre tap switches to fine tuning
+    if (connected && (state.capabilities & ft8_control::kExpertEnabled)) {
       d.setTextColor(green, bg); d.setTextSize(1); draw_text(d, "TAP: FINE TUNE", 120, 166);
     }
   } else {
-    if (connected && state.selected > 0 && state.item_count) {
+    const bool latest_map = view == static_cast<uint8_t>(ft8_control::View::map) &&
+                            connected && current_ft8_card.valid && state.selected == 1 &&
+                            current_ft8_card.dial_hz == state.frequency_hz;
+    if (latest_map) {
+      ft8_locator_map(d, current_ft8_card);
+    } else {
+    // The first history row is the latest. For other selected rows we retain
+    // the index until a receiver-owned selected-record query is implemented.
+    const bool latest = view == static_cast<uint8_t>(ft8_control::View::decodes) &&
+                        connected && current_ft8_card.valid && state.selected == 1;
+    if (latest) {
+      d.setTextColor(ink, bg); d.setTextSize(3.2f);
+      draw_text(d, current_ft8_card.callsign[0] ? current_ft8_card.callsign : "TEXT", 120, 112);
+      d.setTextColor(cyan, bg); d.setTextSize(1);
+      draw_text(d, "LATEST LOCAL DECODE", 120, 136);
+      d.setTextColor(dim, bg); d.setTextSize(1);
+      draw_text(d, current_ft8_card.message_received && current_ft8_card.message[0] ?
+                current_ft8_card.message : "MESSAGE NOT RECEIVED", 120, 153);
+    } else if (connected && state.selected > 0 && state.item_count) {
       std::snprintf(line, sizeof line, "%ld / %lu", long(state.selected),
                     (unsigned long)state.item_count);
       d.setTextColor(ink, bg); d.setTextSize(4); draw_text(d, line, 120, 116);
     } else {
       d.setTextColor(dim, bg); d.setTextSize(4); draw_text(d, "-- / --", 120, 116);
     }
-    if (connected) frequency(d, state.frequency_hz, 145, 2, dim);
+    if (connected && !latest) frequency(d, state.frequency_hz, 145, 2, dim);
+    }
   }
 
   if (hunter_view) {
@@ -656,6 +801,76 @@ static void ft8_screen(lgfx::LGFXBase& d, const RadioState& state,
     d.setTextColor(pending ? cyan : ink, bg);
     draw_text(d, ft8_control::hunter_press_name(state.capabilities), 120, 198);
   }
+}
+
+
+// Dead Air v1 companion shell. No synthesized detector readings: the current
+// v4 RadioState has no spectrum, audio, environment or event-count projection.
+// Keep actions disabled until the Tab5 installs a matching semantic dispatcher.
+static void sstv_screen(lgfx::LGFXBase& d, const RadioState& state, Focus focus, bool connected, bool pending) {
+  d.drawCircle(120,120,116,link_color(connected));
+  d.setTextColor(cyan,bg);d.setTextSize(2);draw_text(d,"SSTV RX",120,27);
+  d.setTextSize(1.5f);draw_text(d,sstv_tune?"TUNE":"RECEIVE",120,57);
+  frequency(d,state.frequency_hz,85,2,cyan);
+  const auto& s=state.sstv;
+  if(connected && s.valid) {
+    char status[32];
+    if(s.pending)std::snprintf(status,sizeof status,"SD SAVING...");
+    else if(s.failed)std::snprintf(status,sizeof status,"SD ERRORS %lu",(unsigned long)s.failed);
+    else if(s.saved)std::snprintf(status,sizeof status,"SD SAVED %lu",(unsigned long)s.saved);
+    else std::snprintf(status,sizeof status,"%s",s.flags&sstv_control::kSd?"SD READY":"NO SD CARD");
+    d.setTextSize(1);draw_text(d,status,120,43);
+  }
+  d.setTextSize(1);draw_text(d,"MHz",120,100);
+  if(!connected || !s.valid) {
+    d.setTextColor(dim,bg);draw_text(d,connected?"UPDATE TAB5 FOR SSTV":"OFFLINE",120,127);
+  } else if(sstv_tune) {
+    char text[40];
+    const char* label=focus==Focus::step?"STEP":focus==Focus::gain?"GAIN":"FREQUENCY";
+    d.setTextSize(1.5f);draw_text(d,label,120,119);
+    std::snprintf(text,sizeof text,"STEP %lu Hz",(unsigned long)state.step_hz);draw_text(d,text,120,141);
+    std::snprintf(text,sizeof text,"%s  GAIN %s %d.%d",state.mode==4?"USB":state.mode==5?"LSB":"NFM",
+        s.flags&sstv_control::kGainAuto?"AUTO":"MAN",int(state.gain_tenth_db/10),int(std::abs(state.gain_tenth_db%10)));
+    d.setTextSize(1);draw_text(d,text,120,159);
+    draw_text(d,"TAP: MODE / GAIN AUTO",120,170);
+    draw_text(d,s.flags&sstv_control::kReceiving?"RX ACTIVE: ABORT TO TUNE":"PRESS: NEXT CONTROL",120,181);
+  } else {
+    d.setTextColor(ink,bg);d.setTextSize(1.5f);draw_text(d,sstv_control::mode_name(s.mode),120,119);
+    d.setTextSize(1);draw_text(d,sstv_control::state_name(s.state),120,139);
+    char text[32];std::snprintf(text,sizeof text,"LINES %u / %u",s.row,s.rows);draw_text(d,text,120,155);
+    d.drawRoundRect(55,166,130,7,3,trace_bright);
+    if(s.rows)d.fillRoundRect(56,167,int(uint32_t(s.row)*128/s.rows),5,2,green);
+    draw_text(d,sstv_confirmation==1?"CONFIRM SAVE?":sstv_confirmation==2?"CONFIRM ABORT?":s.pending?"SAVING...":"SAVE          ABORT",120,187);
+  }
+  if(pending){d.setTextColor(cyan,bg);d.setTextSize(1);draw_text(d,"PENDING",120,44);}
+  back_button(d);
+}
+
+static void dead_air_screen(lgfx::LGFXBase& d, const RadioState& state,
+                            bool connected, bool pending, uint32_t now) {
+  constexpr uint32_t violet = 0xba7dff, muted = 0x856b9e;
+  d.drawCircle(120, 120, 116, link_color(connected));
+  d.drawArc(120, 120, 110, 107, motion::phase_degrees(now, 6200),
+            motion::phase_degrees(now, 6200) + 35, violet);
+  d.setTextColor(violet, bg); d.setTextSize(2.5f);
+  draw_text(d, "DEAD AIR", 120, 36);
+  d.fillRoundRect(64, 57, 112, 23, 8, panel);
+  d.drawRoundRect(64, 57, 112, 23, 8, violet);
+  d.setTextColor(ink, panel); d.setTextSize(1.5f);
+  draw_text(d, content_view(Dashboard::dead_air, state.view), 120, 69);
+  // Time-varying bracket is deliberately a UI activity indicator, not RF.
+  const uint8_t pulse = motion::breath(now, 2700);
+  const int glow = 13 + int(pulse) / 28;
+  d.drawCircle(120, 121, glow, muted);
+  d.drawCircle(120, 121, glow + 8, trace_bright);
+  d.drawLine(120-glow-14, 121, 120-glow-5, 121, violet);
+  d.drawLine(120+glow+5, 121, 120+glow+14, 121, violet);
+  d.setTextColor(connected ? ink : dim, bg); d.setTextSize(2);
+  draw_text(d, connected ? "DETAILS PENDING" : "OFFLINE", 120, 163);
+  d.setTextColor(dim, bg); d.setTextSize(1);
+  draw_text(d, "MEASUREMENTS: --", 120, 183);
+  if (pending) { d.setTextColor(cyan, bg); draw_text(d, "ACTION PENDING", 120, 194); }
+  back_button(d);
 }
 
 static void draw_splash(lgfx::LGFXBase& d, bool wait) {
@@ -837,6 +1052,13 @@ void draw(const RadioState& state, Focus focus, bool connected, bool pairing,
   }
   if (state.dashboard == Dashboard::ft8) {
     ft8_screen(d, state, connected, pairing, demo, pending_delta);
+    present(); return;
+  }
+  if (state.dashboard == Dashboard::sstv) {
+    sstv_screen(d,state,focus,connected,pending_delta);present();return;
+  }
+  if (state.dashboard == Dashboard::dead_air) {
+    dead_air_screen(d, state, connected, pending_delta, now);
     present(); return;
   }
   const auto dashboard = state.dashboard;

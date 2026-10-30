@@ -17,6 +17,7 @@ The Tab5 owns radio state, decoding, user permissions, history, networking and a
 | File | Purpose |
 |---|---|
 | [mockups/README.md](mockups/README.md) | Six editable 240×240 Home / FT8 / Dead Air / map / launcher / offline design concepts |
+| [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) | Active branch implementation, test commands and remaining live-link gates |
 | [BASELINE_AND_GAPS.md](BASELINE_AND_GAPS.md) | Repo-pinned source audit, ownership boundary, confirmed gaps and verification limits |
 | [UX_AND_CONTROL_SPEC.md](UX_AND_CONTROL_SPEC.md) | Three Home concepts, default hybrid interaction, gestures and 240x240 content layouts |
 | [FT8_COMPANION_SPEC.md](FT8_COMPANION_SPEC.md) | Latest decode, history, grid/direction/map, provenance and semantic controls |

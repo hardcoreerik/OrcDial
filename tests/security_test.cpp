@@ -1,4 +1,8 @@
 #include "../src/control/secure_session.hpp"
+#include "../src/ft8_projection.hpp"
+#ifdef ORCDIAL_RECEIVER_INTEROP
+extern "C" bool ft8_receiver_frames(uint8_t*, uint8_t*);
+#endif
 #include <cassert>
 #include <cstdio>
 #include <vector>
@@ -188,9 +192,53 @@ void scenarios(){
   lossy.restart();other.restart();run(lossy,other,0,3000);assert(lossy.session->status().state==State::connected&&other.session->status().state==State::connected);
   const int before=other.delivered;other.session->receive(lossy.mac,old.m,3000);assert(other.delivered==before);
 }
+void projection_session() {
+  Node dial(1), receiver(2); pairing(dial,receiver);
+  const auto code=dial.session->status().code;
+  assert(dial.session->confirm(code,2000));assert(receiver.session->confirm(code,2000));
+  pump(dial,receiver,2000);run(dial,receiver,2000,4000);
+  orc::Packet offer{};offer.role=orc::Role::receiver;offer.type=orc::Type::radio_state;
+  offer.sender=123;offer.sequence=1;offer.capabilities=orc::projection::kFt8V1;
+  uint8_t wire[64];orc::encode(offer,wire);
+  assert(receiver.session->send_control(wire,64,4000));pump(dial,receiver,4000);
+  orc::Packet decoded{};
+  assert(orc::decode(reinterpret_cast<const uint8_t*>(dial.payload.data()),dial.payload.size(),decoded));
+  assert(decoded.capabilities==orc::projection::kFt8V1);
+  orc::Packet heartbeat{};heartbeat.role=orc::Role::dial;heartbeat.type=orc::Type::heartbeat;
+  heartbeat.sender=41;heartbeat.sequence=1;orc::projection::request(heartbeat);orc::encode(heartbeat,wire);
+  assert(dial.session->send_control(wire,64,4001));pump(dial,receiver,4001);
+  assert(orc::decode(reinterpret_cast<const uint8_t*>(receiver.payload.data()),receiver.payload.size(),decoded));
+  orc::projection::Peer peer;peer.observe(decoded,4001);assert(peer.enabled(4001));
+  uint8_t brief[64]{},text[64]{};
+#ifdef ORCDIAL_RECEIVER_INTEROP
+  assert(ft8_receiver_frames(brief,text));
+#else
+  orc::ft8_projection::Card card{};card.sender=123;card.record_id=808;card.dial_hz=14074000;
+  std::strcpy(card.message,"CQ W1AW FN31");
+  orc::ft8_projection::encode_brief(card,brief);orc::ft8_projection::encode_text(card,text);
+#endif
+  orc::ft8_projection::Receiver cache;cache.context(123,true,orc::projection::kFt8V1);
+  assert(receiver.session->send_control(brief,64,4002));auto replay=flights.front();pump(dial,receiver,4002);
+  assert(cache.receive(reinterpret_cast<const uint8_t*>(dial.payload.data()),4002));
+  assert(receiver.session->send_control(text,64,4003));pump(dial,receiver,4003);
+  assert(cache.receive(reinterpret_cast<const uint8_t*>(dial.payload.data()),4003));
+  assert(cache.card().message_received && std::strcmp(cache.card().message,"CQ W1AW FN31")==0);
+  const int before=dial.delivered;dial.session->receive(receiver.mac,replay.m,4004);assert(dial.delivered==before);
+  assert(receiver.session->send_control(text,64,4005));auto corrupt=flights.front();flights.clear();
+  corrupt.m.data[20]^=1;dial.session->receive(receiver.mac,corrupt.m,4005);assert(dial.delivered==before);
+  // Metadata does not consume application command/ack IDs.
+  orc::Packet tune{};tune.role=orc::Role::dial;tune.type=orc::Type::tune_absolute;
+  tune.sender=41;tune.sequence=2;tune.value=14074000;orc::encode(tune,wire);
+  assert(dial.session->send_control(wire,64,4006));pump(dial,receiver,4006);
+  assert(orc::decode(reinterpret_cast<const uint8_t*>(receiver.payload.data()),receiver.payload.size(),decoded));
+  assert(decoded.type==orc::Type::tune_absolute && decoded.sequence==2 && decoded.value==14074000);
+  dial.restart();receiver.restart();run(dial,receiver,0,3000);
+  const int after=dial.delivered;dial.session->receive(receiver.mac,replay.m,3000);assert(dial.delivered==after);
+  peer.reset();cache.reset();assert(!peer.enabled(3000) && !cache.card().valid);
+}
 int main(){
 #ifdef _MSC_VER
   _set_abort_behavior(0,_WRITE_ABORT_MSG|_CALL_REPORTFAULT);
   _CrtSetReportMode(_CRT_ASSERT,_CRTDBG_MODE_FILE);_CrtSetReportFile(_CRT_ASSERT,_CRTDBG_FILE_STDERR);
 #endif
-  vectors();fragments();scenarios();std::puts("secure pairing, vectors, fragments, trust, replay and revocation: PASS");}
+  vectors();fragments();scenarios();projection_session();std::puts("secure pairing, vectors, fragments, trust, replay and revocation: PASS");}

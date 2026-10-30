@@ -30,5 +30,7 @@ jobs:
           key: pio-${{ runner.os }}-${{ hashFiles('platformio.ini', 'tools/ci/setup.sh') }}
       - name: Toolchain
         run: bash tools/ci/setup.sh
+      - name: FT8 Live tuning layout
+        run: python -m unittest discover -s tests -p test_ft8_live_layout.py -v
       - name: release_check.py (no hardware)
         run: python tools/release_check.py --mbedtls-source "$MBEDTLS_SOURCE" --pio pio

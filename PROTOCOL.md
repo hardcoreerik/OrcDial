@@ -66,3 +66,27 @@ Connect can override a peer's manual stop.
 The older receiver stub under `examples` is historical prototype code and is
 not a version-4 secure receiver. Do not use its raw packet handling as integration
 guidance. The production receiver is the OrcSDR Tab5 secure worker/bridge.
+
+
+## Negotiated FT8 projection schema 1 (development)
+
+The Tab5 advertises global capability bit 31 (`0x80000000`) in authenticated
+RADIO_STATE. A supporting Dial opts in with ordinary HEARTBEAT capabilities
+exactly `0x80000000` and revision `0x46543801`. This does not change the ordinary
+RADIO_STATE revision or dashboard-local bits. The lease lasts 3500 ms, renewed
+only by a newer, nonzero heartbeat sequence from the same authenticated session.
+Old peers retain ordinary heartbeat/state/control behavior and receive no new
+metadata types. Security protocol 4, trust storage and C6 firmware are unchanged.
+
+Types 17 and 18 carry the existing 64-byte FT8 summary/text schema. They are
+receiver-only observations, with a separate nonzero decode record ID; they do
+not acknowledge commands. Delivery is latest-only and best effort, capped to one
+pair per 1500 ms. Source retries stop after 60 seconds; the Dial cache expires
+60 seconds after first accepting a record. Duplicate frames never renew it.
+Receiver, secure session, dashboard and capability changes invalidate the cache.
+
+Exact layout remains in `docs/orcdial-2/IMPLEMENTATION_STATUS.md`. Receiver-side
+integration and hardware gates are documented in OrcSDR's
+[`docs/ORCDIAL_FT8_INTEGRATION.md`](https://github.com/hardcoreerik/OrcSDR/blob/chatgpt/orcdial-2-ft8-projection-20261029/docs/ORCDIAL_FT8_INTEGRATION.md).
+The optional `-DORCSDR_SOURCE_DIR=<receiver-checkout>` host CMake setting tests the
+actual receiver encoder through encrypted sessions into the standalone parser.

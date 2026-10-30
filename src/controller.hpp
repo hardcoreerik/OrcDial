@@ -11,7 +11,8 @@ enum class ActionKind : uint8_t {
   message, identity, wifi_ap, wifi_channel, setting, view, activate,
   span, filter,   // Home: zoom the spectrum, widen or narrow the receive filter (appended: values are on the wire)
   ft8_band, ft8_item, ft8_hunter,  // FT8 dashboard (appended after span/filter, so no existing value moves)
-  ft8_fine                         // FT8 dashboard: centre tap toggles rotation between band selection and fine (Hz) tuning
+  ft8_fine,                        // FT8 dashboard: centre tap toggles rotation between band selection and fine (Hz) tuning
+  sstv_save, sstv_abort, sstv_demod, sstv_gain_auto
 };
 struct Action { ActionKind kind = ActionKind::none; int32_t value = 0; };
 inline bool frequency_action(ActionKind kind) { return kind == ActionKind::tune; }
@@ -29,6 +30,9 @@ inline Action rotate(Dashboard id, uint8_t view, Focus focus, int detents,
   if (focus == Focus::span) return {ActionKind::span, detents};
   if (focus == Focus::filter) return {ActionKind::filter, detents};
   switch (id) {
+    case Dashboard::sstv:
+      { const int64_t hz=int64_t(detents)*step_hz;
+        return {ActionKind::tune,hz>1000000000?1000000000:hz< -1000000000? -1000000000:int32_t(hz)}; }
     // Home tunes the whole range: the value is a count of steps, not Hz. The Tab5 applies the step of the
     // band it is in, so a spin that crosses a band edge changes step and snaps to the next band's raster.
     case Dashboard::home: return {ActionKind::tune, detents * acceleration};
@@ -66,6 +70,10 @@ inline Action rotate(Dashboard id, uint8_t view, Focus focus, int detents,
   }
 }
 inline Action press(Dashboard id, uint8_t view, uint32_t capabilities = 0) {
+  // The v4 receiver does not yet advertise safe semantic control support for these
+  // new dashboards. A named visual shell must not issue implicit remote commands.
+  if (id == Dashboard::dead_air || id == Dashboard::acars || id == Dashboard::sstv)
+    return {};
   if (id == Dashboard::ft8) {
     if (view == static_cast<uint8_t>(ft8_control::View::live) ||
         view == static_cast<uint8_t>(ft8_control::View::hunter)) {
@@ -84,6 +92,7 @@ inline Action press(Dashboard id, uint8_t view, uint32_t capabilities = 0) {
   return {ActionKind::view, 1};
 }
 inline Focus next_focus(Dashboard id, Focus focus) {
+  if (id == Dashboard::sstv) return focus == Focus::vfo ? Focus::step : focus == Focus::step ? Focus::gain : Focus::vfo;
   if (id == Dashboard::home) {
     if (focus == Focus::vfo) return Focus::step;
     if (focus == Focus::step) return Focus::span;

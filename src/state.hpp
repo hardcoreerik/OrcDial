@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include "dashboard.hpp"
+#include "sstv_control.hpp"
 
 namespace orc {
 #ifndef ORCDIAL_DEFAULT_STEP_HZ
@@ -22,6 +23,7 @@ struct RadioState {
   int32_t selected = 0;
   uint32_t item_count = 0;
   uint32_t capabilities = 0;
+  sstv_control::Snapshot sstv;
 };
 enum class Focus : uint8_t { vfo, step, gain, squelch, volume, span, filter };
 constexpr uint32_t steps[] = {1, 10, 100, 1000, 2500, 5000, 10000, 12500, 25000, 100000, 1000000};

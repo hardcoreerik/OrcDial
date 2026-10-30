@@ -1,5 +1,6 @@
 #pragma once
 #include "state.hpp"
+#include "ft8_projection.hpp"
 #include "control/secure_session.hpp"
 #include "dial_settings.hpp"
 #include <M5Dial.h>
@@ -15,6 +16,9 @@ void keypad_state(const char* entry, bool out_of_range, const char* range_text);
 void settings_state(const SettingsView& view);
 char keypad_hit(int x, int y);
 void devices_state(const secure::Status& status,int selection,bool forget_confirmation);
+void ft8_state(const ft8_projection::Card& card);
+void sound_state(const sound::Settings& settings);
+void sstv_view(bool tune, uint8_t confirmation);
 #ifdef ORCDIAL_DOC_CAPTURE
 void capture_frame(bool mark_demo = false);
 void capture_splash();
