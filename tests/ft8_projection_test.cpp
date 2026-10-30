@@ -1,5 +1,6 @@
 #include "../src/ft8_projection.hpp"
 #include <cassert>
+#include <cstddef>
 #include <cstring>
 #include <iostream>
 using namespace orc;
@@ -17,6 +18,20 @@ int main() {
   uint8_t brief[packet_size]{}, text[packet_size]{};
   ft8_projection::encode_brief(original, brief);
   ft8_projection::encode_text(original, text);
+  // Golden wire vectors deliberately shared with the opposite repository.
+  auto matches_hex = [](const uint8_t* bytes, const char* hex) {
+    auto nibble = [](char c) -> unsigned {
+      return c >= '0' && c <= '9' ? unsigned(c-'0') :
+             c >= 'a' && c <= 'f' ? unsigned(c-'a'+10) : 255u;
+    };
+    for (size_t i=0; i<64; ++i) {
+      const unsigned hi=nibble(hex[i*2]),lo=nibble(hex[i*2+1]);
+      if (hi>15 || lo>15 || bytes[i] != uint8_t(hi*16+lo)) return false;
+    }
+    return hex[128] == 0;
+  };
+  assert(matches_hex(brief,"4f52444c041102007b00000028030000000000003ca2e36a90c0d60057314157000000000000000000000000464e33310000000000f407000000000037845473"));
+  assert(matches_hex(text, "4f52444c041202007b00000028030000000000004351205731415720464e3331000000000000000000000000000000000000000000000000000000007ded8e35"));
   ft8_projection::Card decoded{};
   assert(ft8_projection::decode_brief(brief, decoded));
   assert(decoded.valid && !decoded.message_received);
