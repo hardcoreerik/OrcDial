@@ -483,14 +483,16 @@ void loop() {
   if (was_online && !online) sound_player.notify(orc::sound::Event::link_lost, ++link_loss_id);
   was_online = online;
   static bool sstv_observed=false;
+  // Receiver counters restart with the tablet; alert identities belong to this Dial.
+  static uint32_t sstv_alert_id=0;
   static orc::sstv_control::Snapshot previous_sstv;
   if(online && state.dashboard==orc::Dashboard::sstv && state.sstv.valid) {
     const auto& s=state.sstv;
     if(sstv_observed) {
-      if((s.flags&orc::sstv_control::kReceiving) && s.session!=previous_sstv.session)sound_player.notify(orc::sound::Event::receive,s.session);
-      if(s.complete!=previous_sstv.complete)sound_player.notify(orc::sound::Event::complete,s.complete);
-      if(s.saved!=previous_sstv.saved)sound_player.notify(orc::sound::Event::saved,s.saved);
-      if(s.failed!=previous_sstv.failed)sound_player.notify(orc::sound::Event::error,s.failed);
+      if((s.flags&orc::sstv_control::kReceiving) && s.session!=previous_sstv.session)sound_player.notify(orc::sound::Event::receive,++sstv_alert_id);
+      if(s.complete!=previous_sstv.complete)sound_player.notify(orc::sound::Event::complete,++sstv_alert_id);
+      if(s.saved!=previous_sstv.saved)sound_player.notify(orc::sound::Event::saved,++sstv_alert_id);
+      if(s.failed!=previous_sstv.failed)sound_player.notify(orc::sound::Event::error,++sstv_alert_id);
     }
     previous_sstv=s;sstv_observed=true;
   } else sstv_observed=false;
