@@ -721,7 +721,7 @@ static void dead_air_screen(lgfx::LGFXBase& d, const RadioState& state,
   d.drawLine(120-glow-14, 121, 120-glow-5, 121, violet);
   d.drawLine(120+glow+5, 121, 120+glow+14, 121, violet);
   d.setTextColor(connected ? ink : dim, bg); d.setTextSize(2);
-  draw_text(d, connected ? "NO DATA LINK" : "OFFLINE", 120, 163);
+  draw_text(d, connected ? "DETAILS PENDING" : "OFFLINE", 120, 163);
   d.setTextColor(dim, bg); d.setTextSize(1);
   draw_text(d, "MEASUREMENTS: --", 120, 183);
   if (pending) { d.setTextColor(cyan, bg); draw_text(d, "ACTION PENDING", 120, 194); }
