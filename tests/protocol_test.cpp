@@ -16,9 +16,11 @@ int main() {
   assert(decoded.dashboard == uint8_t(orc::Dashboard::weather));
   assert(decoded.action == 7 && decoded.view == 2 && decoded.revision == 49 && decoded.band == 14);
   assert(decoded.selected == -2 && decoded.item_count == 17);
-  assert(orc::carousel_count == 18 && orc::carousel_index(orc::Dashboard::weather) == 3);
+  assert(orc::carousel_count == 21 && orc::carousel_index(orc::Dashboard::weather) == 3);
   assert(!orc::valid_dashboard(uint8_t(orc::devices_entry)));
-  assert(!orc::valid_dashboard(11) && orc::valid_dashboard(17) && !orc::valid_dashboard(18));   // 17 is FT8
+  assert(!orc::valid_dashboard(11) && orc::valid_dashboard(17) && orc::valid_dashboard(18) && orc::valid_dashboard(19) && orc::valid_dashboard(20) && !orc::valid_dashboard(21));   // 17 is FT8
+  assert(orc::carousel_index(orc::Dashboard::dead_air) > orc::carousel_index(orc::Dashboard::ft8));
+  assert(orc::Dashboard::dead_air == static_cast<orc::Dashboard>(20));
   wire[20] ^= 1;
   assert(!orc::decode(wire, sizeof wire, decoded));
   assert(!orc::decode(wire, sizeof wire - 1, decoded));
