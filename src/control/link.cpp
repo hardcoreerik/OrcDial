@@ -141,7 +141,11 @@ void Link::handle(const Incoming& incoming) {
   last_rx_ms_ = millis();
   if (p.type == Type::radio_state) {
     if (p.frequency_hz < 24000 || p.frequency_hz > 1766000000 || !valid_dashboard(p.dashboard)) return;
-    if (p.sender != last_sender_) { last_sender_ = p.sender; last_state_sequence_ = 0; }
+    if (p.sender != last_sender_) {
+      last_sender_ = p.sender;
+      last_state_sequence_ = 0;
+      ft8_card_ = {}; // never reuse data across receiver identities
+    }
     if (!newer_sequence(p.sequence, last_state_sequence_)) return;
     last_state_sequence_ = p.sequence;
     connected_ = true;
@@ -149,12 +153,27 @@ void Link::handle(const Incoming& incoming) {
     state_.gain_tenth_db = p.gain_tenth_db; state_.squelch = p.squelch;
     state_.signal_dbm = p.signal_dbm; state_.signal_valid = p.flags & 1;
     state_.mode = p.mode; state_.volume = p.volume;
+    if (state_.dashboard != Dashboard(p.dashboard)) ft8_card_ = {};
     state_.dashboard = Dashboard(p.dashboard);
     state_.view = p.view; state_.band = p.band; state_.revision = p.revision;
     state_.selected = p.selected; state_.item_count = p.item_count;
     state_.capabilities = p.capabilities;
     if (pending_sequence_ && p.ack == pending_sequence_) { last_ack_ = p.ack; pending_sequence_ = 0; }
     Serial.printf("RX seq=%lu type=RADIO_STATE freq=%lu\n", (unsigned long)p.sequence, (unsigned long)p.frequency_hz);
+  } else if (connected_ && state_.dashboard == Dashboard::ft8 &&
+             p.sender == last_sender_ && p.type == Type::ft8_decode_brief) {
+    // Only authenticated receiver-owned state reaches handle(). No synthetic
+    // callsigns, remote network lookup or Dial-side FT8 parsing.
+    ft8_projection::Card next{};
+    if (ft8_projection::decode_brief(incoming.data, next) &&
+        (!ft8_card_.valid || newer_sequence(next.record_id, ft8_card_.record_id))) {
+      ft8_card_ = next;
+      Serial.printf("FT8_RX_BRIEF record=%lu\n", (unsigned long)next.record_id);
+    }
+  } else if (connected_ && state_.dashboard == Dashboard::ft8 &&
+             p.sender == last_sender_ && p.type == Type::ft8_decode_text) {
+    if (ft8_projection::decode_text(incoming.data, ft8_card_))
+      Serial.printf("FT8_RX_TEXT record=%lu\n", (unsigned long)ft8_card_.record_id);
   } else if (p.type == Type::error && pending_sequence_ && p.ack == pending_sequence_) {
     Serial.printf("ACTION_REJECTED seq=%lu reason=%ld\n", (unsigned long)p.ack, long(p.value));
     pending_sequence_ = 0;
@@ -173,7 +192,11 @@ void Link::poll() {
     if (tracing) Serial.printf("RF t=%lu ev=%s ch=%u\n", (unsigned long)e.ms, rf_names[e.kind], unsigned(e.channel));
   }
   const auto status=secure_.status();paused_=status.state==secure::State::paused;
-  if(status.state!=secure::State::connected){connected_=false;pending_sequence_=0;last_state_sequence_=0;connected_at_=0;return;}
+  if(status.state!=secure::State::connected){
+    connected_=false;pending_sequence_=0;last_state_sequence_=0;connected_at_=0;
+    ft8_card_ = {}; // never show a previously paired station as live
+    return;
+  }
   // Remember the channel a working connection used, so the next boot looks there first.
   if(!connected_at_)connected_at_=millis()|1u;
   else if(channel_>=1 && channel_<=11 && channel_!=saved_channel_ && uint32_t(millis()-connected_at_)>5000 &&
