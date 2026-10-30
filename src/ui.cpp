@@ -12,6 +12,11 @@
 namespace orc {
 static ft8_projection::Card current_ft8_card{};
 void ft8_state(const ft8_projection::Card& card) { current_ft8_card = card; }
+static sound::Settings current_sound;
+static bool sstv_tune = false;
+static uint8_t sstv_confirmation = 0;
+void sstv_view(bool tune, uint8_t confirmation) { sstv_tune=tune;sstv_confirmation=confirmation; }
+void sound_state(const sound::Settings& settings) { current_sound = settings; }
 static secure::Status device_status;
 static int device_selection=0;
 static bool device_forget_confirmation=false;
@@ -75,7 +80,19 @@ static void draw_text(lgfx::LGFXBase& d, const char* text, int x, int y, int wid
 }
 static M5Canvas frame(&M5Dial.Display);
 static bool frame_attempted = false, frame_ready = false;
-static void present() { if (frame_ready) frame.pushSprite(0, 0); }
+static void present() {
+  auto& d = frame_ready ? static_cast<lgfx::LGFXBase&>(frame) : static_cast<lgfx::LGFXBase&>(M5Dial.Display);
+  const uint32_t color = sound::muted(current_sound) ? red : current_sound.enabled ? green : dim;
+  d.fillRoundRect(21, 56, 19, 21, 4, panel);
+  d.fillRect(24, 63, 3, 6, color);
+  d.fillTriangle(27, 63, 31, 59, 31, 73, color);
+  if (sound::muted(current_sound)) {
+    d.drawLine(33, 62, 38, 70, color); d.drawLine(33, 70, 38, 62, color);
+  } else {
+    d.drawLine(34, 62, 37, 64, color); d.drawLine(37, 64, 37, 68, color); d.drawLine(37, 68, 34, 70, color);
+  }
+  if (frame_ready) frame.pushSprite(0, 0);
+}
 // The outermost ring shows link state on every screen: green when linked, red when offline.
 static uint32_t link_color(bool connected) { return connected ? green : red; }
 static uint32_t accent_for(Dashboard id, bool connected) {
@@ -228,7 +245,7 @@ void settings_state(const SettingsView& view) { settings_view = view; }
 static void settings_row(lgfx::LGFXBase& d, int y, const char* label, const char* value, bool focused) {
   if (focused) d.fillRoundRect(22, y - 15, 196, 30, 8, panel);
   d.setTextSize(1.5f);
-  d.setTextDatum(middle_left); d.setTextColor(focused ? cyan : dim); d.drawString(label, 34, y);
+  d.setTextDatum(middle_left); d.setTextColor(focused ? cyan : dim); d.drawString(label, 46, y);
   d.setTextDatum(middle_right); d.setTextColor(focused ? ink : dim); d.drawString(value, 206, y);
   d.setTextDatum(middle_center);
 }
@@ -285,6 +302,20 @@ static void settings_page_screen(lgfx::LGFXBase& d, bool connected) {
       settings_row(d, 112, "REVERSE", v.settings.invert ? "ON" : "OFF", v.row == 1);
       settings_row(d, 146, "CLICK", v.settings.click ? "ON" : "OFF", v.row == 2);
       line(176, dim, "TURN: CHANGE   PRESS: NEXT");
+      break;
+    }
+    case Page::sound: {
+      const char* labels[] = {"ALERTS", "MUTE ALL", "VOLUME", "RX START", "RX COMPLETE", "IMAGE SAVED", "ERRORS", "LINK LOST"};
+      for (int offset = -1; offset <= 1; ++offset) {
+        const int row = (v.row + offset + 8) % 8;
+        const char* value;
+        if (row == 0) value = v.settings.sound.enabled ? "ON" : "OFF";
+        else if (row == 1) value = v.settings.sound.muted ? "ON" : "OFF";
+        else if (row == 2) { std::snprintf(a, sizeof a, "%u%%", unsigned(v.settings.sound.volume) * 100 / 255); value = a; }
+        else value = v.settings.sound.events & (1u << (row-3)) ? "ON" : "OFF";
+        settings_row(d, 78 + (offset+1)*34, labels[row], value, offset == 0);
+      }
+      line(176, dim, "TURN: CHANGE / PRESS: NEXT");
       break;
     }
     case Page::about: {
@@ -775,6 +806,37 @@ static void ft8_screen(lgfx::LGFXBase& d, const RadioState& state,
 // Dead Air v1 companion shell. No synthesized detector readings: the current
 // v4 RadioState has no spectrum, audio, environment or event-count projection.
 // Keep actions disabled until the Tab5 installs a matching semantic dispatcher.
+static void sstv_screen(lgfx::LGFXBase& d, const RadioState& state, Focus focus, bool connected, bool pending) {
+  d.drawCircle(120,120,116,link_color(connected));
+  d.setTextColor(cyan,bg);d.setTextSize(2);draw_text(d,"SSTV RX",120,27);
+  d.setTextSize(1.5f);draw_text(d,sstv_tune?"TUNE":"RECEIVE",120,57);
+  frequency(d,state.frequency_hz,85,2,cyan);
+  const auto& s=state.sstv;
+  d.setTextSize(1);draw_text(d,"MHz",120,100);
+  if(!connected || !s.valid) {
+    d.setTextColor(dim,bg);draw_text(d,connected?"UPDATE TAB5 FOR SSTV":"OFFLINE",120,127);
+  } else if(sstv_tune) {
+    char text[40];
+    const char* label=focus==Focus::step?"STEP":focus==Focus::gain?"GAIN":"FREQUENCY";
+    d.setTextSize(1.5f);draw_text(d,label,120,119);
+    std::snprintf(text,sizeof text,"STEP %lu Hz",(unsigned long)state.step_hz);draw_text(d,text,120,141);
+    std::snprintf(text,sizeof text,"%s  GAIN %s %d.%d",state.mode==4?"USB":state.mode==5?"LSB":"NFM",
+        s.flags&sstv_control::kGainAuto?"AUTO":"MAN",int(state.gain_tenth_db/10),int(std::abs(state.gain_tenth_db%10)));
+    d.setTextSize(1);draw_text(d,text,120,159);
+    draw_text(d,"TAP: MODE / GAIN AUTO",120,170);
+    draw_text(d,s.flags&sstv_control::kReceiving?"RX ACTIVE: ABORT TO TUNE":"PRESS: NEXT CONTROL",120,181);
+  } else {
+    d.setTextColor(ink,bg);d.setTextSize(1.5f);draw_text(d,sstv_control::mode_name(s.mode),120,119);
+    d.setTextSize(1);draw_text(d,sstv_control::state_name(s.state),120,139);
+    char text[32];std::snprintf(text,sizeof text,"LINES %u / %u",s.row,s.rows);draw_text(d,text,120,155);
+    d.drawRoundRect(55,166,130,7,3,trace_bright);
+    if(s.rows)d.fillRoundRect(56,167,int(uint32_t(s.row)*128/s.rows),5,2,green);
+    draw_text(d,sstv_confirmation==1?"CONFIRM SAVE?":sstv_confirmation==2?"CONFIRM ABORT?":s.pending?"SAVING...":"SAVE          ABORT",120,187);
+  }
+  if(pending){d.setTextColor(cyan,bg);d.setTextSize(1);draw_text(d,"PENDING",120,44);}
+  back_button(d);
+}
+
 static void dead_air_screen(lgfx::LGFXBase& d, const RadioState& state,
                             bool connected, bool pending, uint32_t now) {
   constexpr uint32_t violet = 0xba7dff, muted = 0x856b9e;
@@ -982,6 +1044,9 @@ void draw(const RadioState& state, Focus focus, bool connected, bool pairing,
   if (state.dashboard == Dashboard::ft8) {
     ft8_screen(d, state, connected, pairing, demo, pending_delta);
     present(); return;
+  }
+  if (state.dashboard == Dashboard::sstv) {
+    sstv_screen(d,state,focus,connected,pending_delta);present();return;
   }
   if (state.dashboard == Dashboard::dead_air) {
     dead_air_screen(d, state, connected, pending_delta, now);

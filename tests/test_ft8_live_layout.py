@@ -24,7 +24,7 @@ class Ft8LiveLayoutTest(unittest.TestCase):
         source = (ROOT / 'src/ui.cpp').read_text(encoding='utf-8')
         production = '\n'.join(function(source, marker) for marker in [
             'static void draw_text(', 'static void frequency(',
-            'static const char* ft8_band_label(', 'static void ft8_screen('])
+            'static const char* ft8_band_label(', 'static void ft8_screen(', 'static void sstv_screen('])
         harness = r'''
 #include "src/state.hpp"
 #include "src/ft8_projection.hpp"
@@ -59,6 +59,8 @@ class LGFXBase {
 namespace orc {
 constexpr uint32_t bg=0,panel=1,cyan=2,green=3,ink=4,dim=5,trace_bright=6;
 ft8_projection::Card current_ft8_card;
+bool sstv_tune=false;uint8_t sstv_confirmation=0;
+void back_button(lgfx::LGFXBase&) {}
 uint32_t link_color(bool) { return 0; }
 void ft8_locator_map(lgfx::LGFXBase&,const ft8_projection::Card&) {}
 '''
@@ -96,6 +98,14 @@ int main() {
   assert(has("60m") && has("5.357") && !has("KJ4KFJ"));
   state.capabilities=0;display.labels.clear();ft8_screen(display,state,false,false,false,false);
   assert(!has("60m") && !has("KJ4KFJ"));
+  state.dashboard=Dashboard::sstv;state.frequency_hz=14230000;state.step_hz=1000;
+  state.sstv.valid=true;state.sstv.mode=1;state.sstv.state=4;state.sstv.row=120;state.sstv.rows=240;
+  auto sstv_paint=[&] {display.labels.clear();sstv_screen(display,state,Focus::vfo,true,false);};
+  sstv_paint();assert(has("RECEIVE") && has("14.230") && has("ROBOT36") && has("LINES 120 / 240"));
+  state.sstv.row=121;sstv_paint();assert(has("LINES 121 / 240"));
+  sstv_confirmation=2;sstv_paint();assert(has("CONFIRM ABORT?"));
+  sstv_tune=true;sstv_paint();assert(has("TUNE") && has("FREQUENCY") && has("STEP 1000 Hz"));
+  state.sstv.valid=false;sstv_paint();assert(has("UPDATE TAB5 FOR SSTV"));
   assert(display.clears==0); // this screen path adds no full-screen clear
   std::cout << "FT8 Live tuning/decode layout PASS\n";
 }

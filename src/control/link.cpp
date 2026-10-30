@@ -159,6 +159,7 @@ void Link::handle(const Incoming& incoming) {
     state_.view = p.view; state_.band = p.band; state_.revision = p.revision;
     state_.selected = p.selected; state_.item_count = p.item_count;
     state_.capabilities = p.capabilities;
+    state_.sstv = sstv_control::decode(p);
     if (pending_sequence_ && p.ack == pending_sequence_) { last_ack_ = p.ack; pending_sequence_ = 0; }
     Serial.printf("RX seq=%lu type=RADIO_STATE freq=%lu\n", (unsigned long)p.sequence, (unsigned long)p.frequency_hz);
   } else if (connected_ && (p.type == Type::ft8_decode_brief || p.type == Type::ft8_decode_text)) {

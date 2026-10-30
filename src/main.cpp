@@ -31,6 +31,11 @@ static int device_selection=0;
 static bool forget_confirmation=false;
 // Dial Settings.
 static orc::DialSettings dial_settings;
+static orc::sound::Player sound_player;
+static bool sstv_tune=false;
+static uint8_t sstv_confirm=0;
+static uint32_t sstv_confirm_at=0;
+static uint32_t sstv_confirm_session=0;
 static orc::Page current_page = orc::Page::link;
 static int menu_index = 0, page_row = 0;
 static bool reset_armed = false, display_asleep = false, press_swallow = false, touch_swallow = false;
@@ -39,6 +44,21 @@ static void apply_display() { M5Dial.Display.setBrightness(display_asleep ? 0 : 
 static void note_activity() {
   last_activity_ms = millis();
   if (display_asleep) { display_asleep = false; apply_display(); }
+}
+static void apply_sound() { sound_player.configure(dial_settings.sound, M5Dial.Speaker); }
+static void save_sound() {
+  apply_sound(); // stop current output before any flash write
+  if (!orc::save_settings(dial_settings)) Serial.println("ORCDIAL_SETTINGS_ERROR save_failed");
+}
+static void mute_sound(bool muted) {
+  dial_settings.sound.muted = muted;
+  save_sound();
+}
+static void sound_report() {
+  const auto& s = dial_settings.sound;
+  Serial.printf("ORCDIAL_SOUND enabled=%d muted=%d volume=%u events=%u active=%d pending=%d driver_playing=%d played=%lu\n",
+    s.enabled, s.muted, unsigned(s.volume), unsigned(s.events), sound_player.active(),
+    sound_player.pending(), bool(M5Dial.Speaker.isPlaying()), (unsigned long)sound_player.played_count());
 }
 static void open_settings_menu() { forget_confirmation = false; reset_armed = false; view = orc::View::settings_menu; }
 static void open_page(orc::Page page) {
@@ -160,6 +180,12 @@ static void change(orc::Type type, int32_t value) {
   }
 }
 static void act(orc::Action action, bool online) {
+  if(online && radio_link.state().dashboard==orc::Dashboard::sstv &&
+     (!radio_link.state().sstv.valid || (action.kind==orc::ActionKind::tune &&
+      (radio_link.state().sstv.flags&orc::sstv_control::kReceiving)))) {
+    Serial.println("ORCDIAL_SSTV_ERROR abort_before_tuning");return;
+  }
+
   using K = orc::ActionKind;
   if (action.kind == K::none) return;
   if (online) {
@@ -187,6 +213,23 @@ static void act(orc::Action action, bool online) {
     default: break; // No synthetic channels, aircraft, nodes, messages or APs.
   }
 }
+static void sstv_action(uint8_t action) {
+  if(!radio_link.connected() || !radio_link.state().sstv.valid) { Serial.println("ORCDIAL_SSTV_ERROR unavailable");return; }
+  if(action==0){sstv_tune=!sstv_tune;sstv_confirm=0;focus=orc::Focus::vfo;return;}
+  if(action==1 || action==2) {
+    const auto& s=radio_link.state().sstv;
+    if((action==1 && (!(s.flags&orc::sstv_control::kSd) || (!s.row && !s.complete))) ||
+       (action==2 && !(s.flags&orc::sstv_control::kReceiving))) {
+      Serial.println("ORCDIAL_SSTV_ERROR action_unavailable");return;
+    }
+    if(sstv_confirm!=action || sstv_confirm_session!=s.session || millis()-sstv_confirm_at>4000) {
+      sstv_confirm=action;sstv_confirm_session=s.session;sstv_confirm_at=millis();Serial.println("ORCDIAL_SSTV_CONFIRM_REQUIRED");return;
+    }
+    sstv_confirm=0;
+    if(!radio_link.command_action({action==1?orc::ActionKind::sstv_save:orc::ActionKind::sstv_abort,1}))Serial.println("ORCDIAL_SSTV_ERROR busy");
+  } else if(action==3)radio_link.command_action({orc::ActionKind::sstv_demod,1});
+  else if(action==4)radio_link.command_action({orc::ActionKind::sstv_gain_auto,1});
+}
 static void settings_adjust(int delta) {
   auto& s = dial_settings;
   if (current_page == orc::Page::display) {
@@ -196,6 +239,12 @@ static void settings_adjust(int delta) {
     if (page_row == 0) s.accel = uint8_t(constrain(int(s.accel) + delta, 0, 2));
     else if (page_row == 1) s.invert = !s.invert;
     else s.click = !s.click;
+  } else if (current_page == orc::Page::sound) {
+    if (page_row == 0) s.sound.enabled = !s.sound.enabled;
+    else if (page_row == 1) s.sound.muted = !s.sound.muted;
+    else if (page_row == 2) s.sound.volume = uint8_t(constrain(int(s.sound.volume) + delta*16, 0, 255));
+    else s.sound.events ^= 1u << (page_row-3);
+    apply_sound();
   } else return;
   if (!orc::save_settings(s)) Serial.println("ORCDIAL_SETTINGS_ERROR save_failed");
 }
@@ -207,7 +256,7 @@ static void settings_press(bool online) {
       else if (status.trusted) radio_link.connect();
       else open_page(orc::Page::pairing);
       break;
-    case orc::Page::display: case orc::Page::knob:
+    case orc::Page::display: case orc::Page::knob: case orc::Page::sound:
       page_row = (page_row + 1) % orc::page_rows(current_page);
       break;
     case orc::Page::reset:
@@ -216,6 +265,7 @@ static void settings_press(bool online) {
       radio_link.forget();
       if (!orc::erase_settings()) Serial.println("ORCDIAL_SETTINGS_ERROR erase_failed");
       dial_settings = orc::DialSettings();
+      apply_sound();
       apply_display();
       view = orc::View::home;
       break;
@@ -329,7 +379,10 @@ static void poll_serial_commands() {
       else {
         const auto& state = radio_link.state();
         const auto action = orc::rotate(state.dashboard, state.view, focus, int(detents), 1, state.step_hz);
-        if (action.kind == orc::ActionKind::none) Serial.println("ORCDIAL_CONTROL_ERROR unsupported");
+        if(state.dashboard==orc::Dashboard::sstv && (!state.sstv.valid ||
+           (action.kind==orc::ActionKind::tune && (state.sstv.flags&orc::sstv_control::kReceiving))))
+          Serial.println("ORCDIAL_SSTV_ERROR abort_before_tuning");
+        else if (action.kind == orc::ActionKind::none) Serial.println("ORCDIAL_CONTROL_ERROR unsupported");
         else if (!radio_link.command_action(action)) Serial.println("ORCDIAL_CONTROL_ERROR busy");
         else Serial.printf("ORCDIAL_CONTROL_QUEUED action=%u value=%ld seq=%lu\n", unsigned(action.kind), long(action.value), (unsigned long)radio_link.pending_sequence());
       }
@@ -354,7 +407,49 @@ static void poll_serial_commands() {
                     (unsigned long)state.step_hz, unsigned(state.volume),
                     (unsigned long)radio_link.last_ack(), radio_link.pending() ? 1 : 0,
                     "ESPNOW");
+    } else if (!std::strncmp(command,"ORCDIAL_SSTV ",13)) {
+      const char* action=command+13;
+      if(!std::strcmp(action,"PAGE"))sstv_action(0);
+      else if(!std::strcmp(action,"SAVE"))sstv_action(1);
+      else if(!std::strcmp(action,"ABORT"))sstv_action(2);
+      else if(!std::strcmp(action,"MODE"))sstv_action(3);
+      else if(!std::strcmp(action,"GAIN_AUTO"))sstv_action(4);
+      else if(!std::strcmp(action,"STATUS")) {
+        const auto& s=radio_link.state().sstv;
+        Serial.printf("ORCDIAL_SSTV valid=%d tune=%d state=%u mode=%u session=%lu row=%u rows=%u complete=%lu saved=%lu failed=%lu\n",s.valid,sstv_tune,s.state,s.mode,(unsigned long)s.session,s.row,s.rows,(unsigned long)s.complete,(unsigned long)s.saved,(unsigned long)s.failed);
+      } else Serial.println("ORCDIAL_SSTV_ERROR invalid_command");
+    } else if (!std::strncmp(command, "ORCDIAL_SOUND", 13) && (!command[13] || command[13]==' ')) {
+      const char* action = command + (command[13] ? 14 : 13);
+      unsigned value=0; char extra=0;
+      bool changed=false;
+      if (!*action || !std::strcmp(action,"STATUS")) {}
+      else if (!std::strcmp(action,"STOP")) sound_player.stop(M5Dial.Speaker);
+      else if (!std::strcmp(action,"MUTE")) {mute_sound(true);}
+      else if (!std::strcmp(action,"UNMUTE")) {mute_sound(false);}
+      else if (!std::strcmp(action,"ON")) {dial_settings.sound.enabled=true;changed=true;}
+      else if (!std::strcmp(action,"OFF")) {dial_settings.sound.enabled=false;changed=true;}
+      else if (!std::strcmp(action,"OPEN")) {open_page(orc::Page::sound);}
+      else if (!std::strcmp(action,"TEST")) {
+        const bool accepted=sound_player.test(orc::sound::Event::complete);
+        Serial.printf("ORCDIAL_SOUND_TEST queued=%d simulation=1\n",accepted);
+      } else if (std::sscanf(action,"VOLUME %u %c",&value,&extra)==1 && value<=255) {
+        dial_settings.sound.volume=uint8_t(value);changed=true;
+      } else if (!std::strncmp(action,"EVENT ",6)) {
+        char name[16]{}, setting[8]{}; bool found=false;
+        if(std::sscanf(action+6,"%15s %7s %c",name,setting,&extra)==2 &&
+           (!std::strcmp(setting,"ON")||!std::strcmp(setting,"OFF"))) {
+          for(unsigned index=0;index<unsigned(orc::sound::Event::count);++index)if(!std::strcmp(name,orc::sound::names[index])) {
+            const auto bit=uint8_t(1u<<index);
+            if(!std::strcmp(setting,"ON"))dial_settings.sound.events|=bit;else dial_settings.sound.events&=uint8_t(~bit);
+            found=true;changed=true;break;
+          }
+        }
+        if(!found)Serial.println("ORCDIAL_SOUND_ERROR invalid_event");
+      } else Serial.println("ORCDIAL_SOUND_ERROR invalid_command");
+      if(changed)save_sound();
+      sound_report();
     } else if (!std::strcmp(command, "ORCDIAL_HELP")) {
+      Serial.println("ORCDIAL_SOUND STATUS|ON|OFF|MUTE|UNMUTE|STOP|VOLUME <0..255>|EVENT <RECEIVE|COMPLETE|SAVED|ERROR|LINK_LOST> <ON|OFF>|TEST|OPEN");
       Serial.println("ORCDIAL_STATUS | ORCDIAL_PAIR START/CANCEL/CONFIRM <code> | ORCDIAL_CONNECT | ORCDIAL_DISCONNECT | ORCDIAL_FORGET | ORCDIAL_FOCUS NEXT | ORCDIAL_ROTATE <-20..20, nonzero>");
     } else if (length) Serial.println("ORCDIAL_COMMAND_ERROR unknown");
     length = 0;
@@ -367,6 +462,7 @@ void setup() {
                 ORCDIAL_VERSION, ORCDIAL_SOURCE_COMMIT, ORCDIAL_SOURCE_DIRTY, ORCDIAL_BUILD_ID, orc::version);
   auto cfg = M5.config(); M5Dial.begin(cfg, true, false);
   orc::load_settings(dial_settings);
+  apply_sound();
   apply_display();
   orc::splash();
   if (!ORCDIAL_DEMO && !radio_link.begin()) Serial.println("ESPNOW_INIT_FAILED");
@@ -382,6 +478,24 @@ void loop() {
   const bool online = !ORCDIAL_DEMO && radio_link.connected();
   const orc::RadioState& state = online ? radio_link.state() : local;
   if (online) local = state;
+  static bool was_online = false;
+  static uint32_t link_loss_id = 0;
+  if (was_online && !online) sound_player.notify(orc::sound::Event::link_lost, ++link_loss_id);
+  was_online = online;
+  static bool sstv_observed=false;
+  static orc::sstv_control::Snapshot previous_sstv;
+  if(online && state.dashboard==orc::Dashboard::sstv && state.sstv.valid) {
+    const auto& s=state.sstv;
+    if(sstv_observed) {
+      if((s.flags&orc::sstv_control::kReceiving) && s.session!=previous_sstv.session)sound_player.notify(orc::sound::Event::receive,s.session);
+      if(s.complete!=previous_sstv.complete)sound_player.notify(orc::sound::Event::complete,s.complete);
+      if(s.saved!=previous_sstv.saved)sound_player.notify(orc::sound::Event::saved,s.saved);
+      if(s.failed!=previous_sstv.failed)sound_player.notify(orc::sound::Event::error,s.failed);
+    }
+    previous_sstv=s;sstv_observed=true;
+  } else sstv_observed=false;
+  if(sstv_confirm && millis()-sstv_confirm_at>4000)sstv_confirm=0;
+  if (sound_player.tick(millis(), M5Dial.Speaker)) Serial.println("ORCDIAL_SOUND_PLAYED");
   static orc::Dashboard last_dashboard = orc::Dashboard::home;
   if (online && state.dashboard != last_dashboard) {
     pending_delta = 0;
@@ -421,7 +535,7 @@ void loop() {
     last_detent = detent;
     note_activity();
     if (dial_settings.invert) movement = -movement;
-    if (dial_settings.click) M5Dial.Speaker.tone(3200, 6);
+    if (dial_settings.click) sound_player.click(M5Dial.Speaker);
     if (view == orc::View::home && !home_tune) { view = orc::View::carousel; selected_index = orc::carousel_index(state.dashboard); }
     if (view == orc::View::carousel) {
       selected_index = (selected_index + movement % orc::carousel_count + orc::carousel_count) % orc::carousel_count;
@@ -465,6 +579,10 @@ void loop() {
     else if (view == orc::View::connection) device_activate();
     else if (view == orc::View::settings_menu) open_page(orc::Page(menu_index));
     else if (view == orc::View::page) settings_press(online);
+    else if (state.dashboard==orc::Dashboard::sstv) {
+      if(sstv_tune)focus=orc::next_focus(state.dashboard,focus);
+      else sstv_action(0);
+    }
     else if (orc::tunable(state.dashboard) || orc::channel_dashboard(state.dashboard))
       focus = orc::next_focus(state.dashboard, focus);
     else act(orc::press(state.dashboard, state.view, state.capabilities), online);
@@ -473,7 +591,10 @@ void loop() {
   if (touching && !touch_down) { touch_swallow = display_asleep; note_activity(); }
   if (touching && !touch_down && !touch_swallow) {
     const auto t = M5Dial.Touch.getDetail();
-    if (view == orc::View::keypad) {
+    if (orc::sound::mute_hit(t.x,t.y)) {
+      mute_sound(!dial_settings.sound.muted);
+      sound_report();
+    } else if (view == orc::View::keypad) {
       const char key = orc::keypad_hit(t.x, t.y);
       if (key == 'C') view = keypad_return;
       else if (key == 'T') keypad_tune(online);
@@ -498,6 +619,11 @@ void loop() {
         const int first = current_page == orc::Page::display ? 88 : 78, pitch = current_page == orc::Page::display ? 40 : 34;
         const int row = (t.y - (first - pitch / 2)) / pitch;
         if (row >= 0 && row < rows) { page_row = row; settings_adjust(1); }
+      } else if (current_page == orc::Page::sound) {
+        if (t.y >= 61 && t.y < 163) {
+          page_row = (page_row + (t.y-61)/34 - 1 + 8) % 8;
+          settings_adjust(1);
+        }
       } else settings_press(online);
     } else if (view == orc::View::home) {
       if (home_tune && t.y >= 40 && t.y < 70) change(orc::Type::set_mode, state.mode >= 5 ? 1 : state.mode + 1);
@@ -509,6 +635,10 @@ void loop() {
       else if (t.x < 70) selected_index = (selected_index + orc::carousel_count - 1) % orc::carousel_count;
       else if (t.x > 170) selected_index = (selected_index + 1) % orc::carousel_count;
       else select_dashboard(state, online);
+    } else if (state.dashboard==orc::Dashboard::sstv && t.y<200) {
+      if(t.y<76)sstv_action(0);
+      else if(!sstv_tune && t.y>=175)sstv_action(t.x<120?1:2);
+      else if(sstv_tune && t.y>=150 && t.y<175)sstv_action(t.x<120?3:4);
     } else if (t.y >= 200) {
       view = orc::View::carousel; selected_index = orc::carousel_index(state.dashboard);   // BACK
     } else if (state.dashboard == orc::Dashboard::ft8 && t.y < 76) {
@@ -563,6 +693,8 @@ void loop() {
         snprintf(v.mac, sizeof v.mac, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
       orc::settings_state(v);
     }
+    orc::sstv_view(sstv_tune,sstv_confirm);
+    orc::sound_state(dial_settings.sound);
     orc::ft8_state(online ? radio_link.ft8_card() : orc::ft8_projection::Card{});
     orc::draw(state, focus, online, !ORCDIAL_DEMO && radio_link.pairing(),
               ORCDIAL_DEMO, view, orc::carousel[selected_index], pending_delta || radio_link.pending(),

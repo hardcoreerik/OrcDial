@@ -30,7 +30,11 @@ int main() {
   assert(press(Dashboard::dead_air, 0).kind == ActionKind::none);
   assert(press(Dashboard::sstv, 0).kind == ActionKind::none);
   assert(press(Dashboard::acars, 0).kind == ActionKind::none);
-  const Dashboard non_tuners[] = {Dashboard::dead_air, Dashboard::sstv, Dashboard::acars, Dashboard::adsb, Dashboard::lora, Dashboard::wifi_analysis,
+  assert(turn(Dashboard::sstv).kind==ActionKind::tune && turn(Dashboard::sstv).value==100000);
+  assert(next_focus(Dashboard::sstv,Focus::vfo)==Focus::step);
+  assert(next_focus(Dashboard::sstv,Focus::step)==Focus::gain);
+  assert(next_focus(Dashboard::sstv,Focus::gain)==Focus::vfo);
+  const Dashboard non_tuners[] = {Dashboard::dead_air, Dashboard::acars, Dashboard::adsb, Dashboard::lora, Dashboard::wifi_analysis,
                                   Dashboard::marine, Dashboard::cb, Dashboard::p25, Dashboard::pocsag,
                                   Dashboard::ft8};
   for (Dashboard d : non_tuners)
