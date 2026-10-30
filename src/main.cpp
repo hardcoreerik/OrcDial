@@ -563,6 +563,7 @@ void loop() {
         snprintf(v.mac, sizeof v.mac, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
       orc::settings_state(v);
     }
+    orc::ft8_state(online ? radio_link.ft8_card() : orc::ft8_projection::Card{});
     orc::draw(state, focus, online, !ORCDIAL_DEMO && radio_link.pairing(),
               ORCDIAL_DEMO, view, orc::carousel[selected_index], pending_delta || radio_link.pending(),
               millis() - last_turn_ms < 700, reel_position, tune_style);
