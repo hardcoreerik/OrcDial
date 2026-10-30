@@ -1,6 +1,9 @@
 # RFC: authenticated capabilities + dashboard data projections
 
-**RFC status: DRAFT — no wire code or protocol version changes authorized.**
+**RFC status: broad dashboard catalog remains DRAFT.** The authorized October 30
+FT8-only implementation negotiates schema 1 through existing authenticated
+state/heartbeat fields; see `PROTOCOL.md`. It retains protocol 4 and C6 firmware.
+The larger manifest/catalog below is not implemented.
 Baseline: [OrcDial `src/control/protocol.hpp`](https://github.com/hardcoreerik/OrcDial/blob/8003aa3d007fe75ca3379eebb7b90f97ec24371d/src/control/protocol.hpp), [`secure_session.hpp`](https://github.com/hardcoreerik/OrcDial/blob/8003aa3d007fe75ca3379eebb7b90f97ec24371d/src/control/secure_session.hpp), [`PROTOCOL.md`](https://github.com/hardcoreerik/OrcDial/blob/8003aa3d007fe75ca3379eebb7b90f97ec24371d/PROTOCOL.md). Receiver truth comes from OrcSDR `d2c1b56`.
 
 ## Problem

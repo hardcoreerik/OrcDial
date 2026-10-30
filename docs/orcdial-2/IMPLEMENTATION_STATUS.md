@@ -121,3 +121,7 @@ g++ -std=c++17 -O2 -Wall -Wextra -Werror -pedantic -Iapps/orcsdr-tab5/ui \
 - GitHub Actions CI on draft PRs: triggered; see check status on PR pages. Do not infer PASS while in progress.
 - Complete PlatformIO/native Tab5 firmware builds locally: NOT RUN (sandbox clone/network unavailable).
 - Physical two-device RF/display/ESP-NOW testing: NOT RUN.
+
+
+Current exact source commits, firmware hashes, host/build results and unclosed
+hardware gates: [integration validation](INTEGRATION_VALIDATION.md).
