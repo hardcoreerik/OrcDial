@@ -27,7 +27,10 @@ int main() {
   assert(rotate(Dashboard::ft8, 3, Focus::vfo, 1, 5, 100000).kind == ActionKind::ft8_band);
   assert(rotate(Dashboard::ft8, 4, Focus::vfo, 1, 5, 100000).kind == ActionKind::ft8_item);
   assert(rotate(Dashboard::ft8, 5, Focus::vfo, 1, 5, 100000).kind == ActionKind::none);
-  const Dashboard non_tuners[] = {Dashboard::adsb, Dashboard::lora, Dashboard::wifi_analysis,
+  assert(press(Dashboard::dead_air, 0).kind == ActionKind::none);
+  assert(press(Dashboard::sstv, 0).kind == ActionKind::none);
+  assert(press(Dashboard::acars, 0).kind == ActionKind::none);
+  const Dashboard non_tuners[] = {Dashboard::dead_air, Dashboard::sstv, Dashboard::acars, Dashboard::adsb, Dashboard::lora, Dashboard::wifi_analysis,
                                   Dashboard::marine, Dashboard::cb, Dashboard::p25, Dashboard::pocsag,
                                   Dashboard::ft8};
   for (Dashboard d : non_tuners)
