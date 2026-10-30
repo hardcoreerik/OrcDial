@@ -137,3 +137,15 @@ remains untested pending antenna/band confirmation.
 
 [Detailed hardware evidence](https://github.com/hardcoreerik/OrcSDR/blob/chatgpt/orcdial-2-ft8-projection-20261029/docs/ORCDIAL_FT8_HARDWARE_2026-10-30.md)
 records recovery hashes, flash verification, pairing and control results.
+
+
+## Live 20 m result
+
+The user subsequently specified an outdoor telescopic antenna set for 20 m,
+50-foot cable and V3c dongle. A 154.1-second observation at 14.074 MHz showed
+real receiver decodes (store 13 to 40) and nine newer records accepted by the
+Dial with both summary and matching text. No synthetic input was used. The
+paired link stayed connected, and the user reported "seems to be working".
+The first local live-delivery milestone is demonstrated on this setup; broader
+physical, stress and legacy-compatibility acceptance remain open. Devices were
+left paired with FT8 running on 20 m. See the hardware evidence linked above.
