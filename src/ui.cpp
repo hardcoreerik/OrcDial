@@ -9,6 +9,8 @@
 #include <cstring>
 
 namespace orc {
+static ft8_projection::Card current_ft8_card{};
+void ft8_state(const ft8_projection::Card& card) { current_ft8_card = card; }
 static secure::Status device_status;
 static int device_selection=0;
 static bool device_forget_confirmation=false;
@@ -642,25 +644,57 @@ static void ft8_screen(lgfx::LGFXBase& d, const RadioState& state,
     d.setTextColor(green, bg); d.setTextSize(1.5f); draw_text(d, line, 120, 172);
     d.setTextColor(dim, bg); d.setTextSize(1); draw_text(d, "TAP: BAND", 120, 188);
   } else if (live_or_hunter) {
-    d.setTextColor(ink, bg); d.setTextSize(4);
-    draw_text(d, connected ? ft8_band_label(state.selected) : "--", 120, 108);
-    if (connected) frequency(d, state.frequency_hz, 135, 2, cyan);
-    else {
-      d.setTextColor(dim, bg); d.setTextSize(2); draw_text(d, "--.---", 120, 135);
+    if (!hunter_view && connected && current_ft8_card.valid) {
+      // A genuine receiver-projected latest decode overrides the band-only
+      // card, while the existing band/Hunter controls remain in place.
+      const auto& card = current_ft8_card;
+      d.setTextColor(ink, bg); d.setTextSize(3.5f);
+      draw_text(d, card.callsign[0] ? card.callsign : "TEXT", 120, 111);
+      char summary[44];
+      const bool have_grid = (card.flags & ft8_projection::kGridAssociated) && card.grid[0];
+      if (have_grid && (card.flags & ft8_projection::kSnrValid))
+        std::snprintf(summary, sizeof summary, "%s  SNR %d", card.grid, int(card.snr_db));
+      else if (have_grid) std::snprintf(summary, sizeof summary, "GRID %s", card.grid);
+      else if (card.flags & ft8_projection::kSnrValid)
+        std::snprintf(summary, sizeof summary, "SNR %d dB", int(card.snr_db));
+      else std::snprintf(summary, sizeof summary, "LOCAL DECODE");
+      d.setTextColor(green, bg); d.setTextSize(1.5f);
+      draw_text(d, summary, 120, 137);
+      d.setTextColor(dim, bg); d.setTextSize(1);
+      draw_text(d, card.message_received && card.message[0] ? card.message : "LOCAL RX", 120, 155);
+    } else {
+      d.setTextColor(ink, bg); d.setTextSize(4);
+      draw_text(d, connected ? ft8_band_label(state.selected) : "--", 120, 108);
+      if (connected) frequency(d, state.frequency_hz, 135, 2, cyan);
+      else {
+        d.setTextColor(dim, bg); d.setTextSize(2); draw_text(d, "--.---", 120, 135);
+      }
+      d.setTextColor(dim, bg); d.setTextSize(1); draw_text(d, "MHz", 120, 151);
     }
-    d.setTextColor(dim, bg); d.setTextSize(1); draw_text(d, "MHz", 120, 151);
-    if (connected && (state.capabilities & ft8_control::kExpertEnabled)) {   // expert tuning is on: a centre tap switches to fine tuning
+    if (connected && (state.capabilities & ft8_control::kExpertEnabled)) {
       d.setTextColor(green, bg); d.setTextSize(1); draw_text(d, "TAP: FINE TUNE", 120, 166);
     }
   } else {
-    if (connected && state.selected > 0 && state.item_count) {
+    // The first history row is the latest. For other selected rows we retain
+    // the index until a receiver-owned selected-record query is implemented.
+    const bool latest = view == static_cast<uint8_t>(ft8_control::View::decodes) &&
+                        connected && current_ft8_card.valid && state.selected == 1;
+    if (latest) {
+      d.setTextColor(ink, bg); d.setTextSize(3.2f);
+      draw_text(d, current_ft8_card.callsign[0] ? current_ft8_card.callsign : "TEXT", 120, 112);
+      d.setTextColor(cyan, bg); d.setTextSize(1);
+      draw_text(d, "LATEST LOCAL DECODE", 120, 136);
+      d.setTextColor(dim, bg); d.setTextSize(1);
+      draw_text(d, current_ft8_card.message_received && current_ft8_card.message[0] ?
+                current_ft8_card.message : "MESSAGE NOT RECEIVED", 120, 153);
+    } else if (connected && state.selected > 0 && state.item_count) {
       std::snprintf(line, sizeof line, "%ld / %lu", long(state.selected),
                     (unsigned long)state.item_count);
       d.setTextColor(ink, bg); d.setTextSize(4); draw_text(d, line, 120, 116);
     } else {
       d.setTextColor(dim, bg); d.setTextSize(4); draw_text(d, "-- / --", 120, 116);
     }
-    if (connected) frequency(d, state.frequency_hz, 145, 2, dim);
+    if (connected && !latest) frequency(d, state.frequency_hz, 145, 2, dim);
   }
 
   if (hunter_view) {
