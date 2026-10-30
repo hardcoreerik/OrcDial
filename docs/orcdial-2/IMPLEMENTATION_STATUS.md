@@ -149,3 +149,42 @@ paired link stayed connected, and the user reported "seems to be working".
 The first local live-delivery milestone is demonstrated on this setup; broader
 physical, stress and legacy-compatibility acceptance remain open. Devices were
 left paired with FT8 running on 20 m. See the hardware evidence linked above.
+
+
+## FT8 Live tuning visibility correction — October 30
+
+The latest-decode card previously replaced the selected band/frequency. Commit
+`c1ba43cf115f5729da815a2087e1187f5c6a05a3` keeps a tuning-context line such as
+`20m  14.074 MHz` visible above the station details. Receiver-owned fine
+frequencies retain six decimal places when needed. Decode cards from a different
+capture frequency are hidden on Live until a matching-frequency record arrives;
+they cannot hide or appear to describe the newly selected band. Existing expert
+frequency tuning and no-decode band presentation remain in place.
+
+Validation:
+
+- `python -m unittest discover -s tests -p test_ft8_live_layout.py -v`: PASS.
+  Compiles the production FT8 screen, text fitting, frequency formatter and band
+  table against a recording display. Covers decode updates, 20m/60m changes,
+  stale-frequency cards, fine frequency precision, offline and expert modes,
+  non-overlapping card labels and no new screen-level full-clear calls. Font
+  measurements are host approximations; this is not native pixel capture or
+  physical readability/flicker acceptance. The existing offscreen compositor is
+  unchanged; no new framebuffer/PSRAM allocation is introduced.
+- `C:\Users\hardc\.platformio\penv\Scripts\python.exe -m platformio run -e dial`:
+  clean-source production build PASS.
+- COM14 application-only flash at `0x10000`: `Hash of data verified`.
+  Image: 1136336 bytes; SHA-256
+  `ff7cdd55d72ddc88494b495d484c512b4e2e73ce6ec78cf512ad87d92f8ac63c`.
+  Previous known installed image remains saved as `firmware-ca2a25b.bin` for rollback.
+- Existing trusted connection resumed without re-pairing. Scripted shared knob
+  action `ORCDIAL_ROTATE 1` changed 20m/14074000 Hz to 17m/18100000 Hz and received
+  acknowledgement 43; `ORCDIAL_ROTATE -1` returned to 20m/14074000 Hz with ack 46.
+  Both reported `pending=0`. These are serial actions through the physical knob's
+  semantic dispatcher, not a mechanical encoder/touch or physical visual test.
+
+Local evidence: `.pio/hardware-slice1/live-layout/` contains the pinned application,
+`firmware-evidence.json`, `flash.log`, `knob_check.py` and `knob-check.log`;
+`live-layout-clean-build.log` is one directory above. Only the Dial application
+was flashed for this correction; no Tab5 firmware or C6 firmware changed, and no
+reconnect stress test was repeated. The devices were left connected on 20m.
