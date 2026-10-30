@@ -741,7 +741,8 @@ static void ft8_screen(lgfx::LGFXBase& d, const RadioState& state,
     }
   } else {
     const bool latest_map = view == static_cast<uint8_t>(ft8_control::View::map) &&
-                            connected && current_ft8_card.valid && state.selected == 1;
+                            connected && current_ft8_card.valid && state.selected == 1 &&
+                            current_ft8_card.dial_hz == state.frequency_hz;
     if (latest_map) {
       ft8_locator_map(d, current_ft8_card);
     } else {

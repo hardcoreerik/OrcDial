@@ -24,7 +24,7 @@ Data flow is one-way observer projection from receiver to Dial. Never let Dial p
 
 **Option C — chunked short records within existing 64-byte payload.** Keeps codec size but adds multi-message assembly and complicated timeout/sequence/ack semantics. Use only if other options demonstrably cannot traverse unchanged C6 bridge.
 
-No option is chosen until local source trace and over-the-wire measurements are complete. **Do not increment the security pairing version merely because dashboard data evolves**; distinguish cryptographic session version from application projection schema version.
+FT8 schema 1 now uses authenticated types 17/18 with opt-in negotiation; that implemented decision supersedes these options for FT8 metadata. Broader catalog transport remains undecided pending source trace and measurements. **Do not increment the security pairing version merely because dashboard data evolves**; distinguish cryptographic session version from application projection schema version.
 
 ## Proposed feature negotiation
 

@@ -416,7 +416,7 @@ static void poll_serial_commands() {
       else if(!std::strcmp(action,"GAIN_AUTO"))sstv_action(4);
       else if(!std::strcmp(action,"STATUS")) {
         const auto& s=radio_link.state().sstv;
-        Serial.printf("ORCDIAL_SSTV valid=%d tune=%d state=%u mode=%u session=%lu row=%u rows=%u complete=%lu saved=%lu failed=%lu\n",s.valid,sstv_tune,s.state,s.mode,(unsigned long)s.session,s.row,s.rows,(unsigned long)s.complete,(unsigned long)s.saved,(unsigned long)s.failed);
+        Serial.printf("ORCDIAL_SSTV valid=%d tune=%d state=%u mode=%u session=%lu row=%u rows=%u complete=%lu saved=%lu failed=%lu\n",radio_link.connected() && s.valid,sstv_tune,s.state,s.mode,(unsigned long)s.session,s.row,s.rows,(unsigned long)s.complete,(unsigned long)s.saved,(unsigned long)s.failed);
       } else Serial.println("ORCDIAL_SSTV_ERROR invalid_command");
     } else if (!std::strncmp(command, "ORCDIAL_SOUND", 13) && (!command[13] || command[13]==' ')) {
       const char* action = command + (command[13] ? 14 : 13);

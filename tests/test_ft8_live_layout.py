@@ -62,7 +62,8 @@ ft8_projection::Card current_ft8_card;
 bool sstv_tune=false;uint8_t sstv_confirmation=0;
 void back_button(lgfx::LGFXBase&) {}
 uint32_t link_color(bool) { return 0; }
-void ft8_locator_map(lgfx::LGFXBase&,const ft8_projection::Card&) {}
+int map_calls=0;
+void ft8_locator_map(lgfx::LGFXBase&,const ft8_projection::Card&) { ++map_calls; }
 '''
         checks = r'''
 }
@@ -98,6 +99,10 @@ int main() {
   assert(has("60m") && has("5.357") && !has("KJ4KFJ"));
   state.capabilities=0;display.labels.clear();ft8_screen(display,state,false,false,false,false);
   assert(!has("60m") && !has("KJ4KFJ"));
+  state.view=static_cast<uint8_t>(ft8_control::View::map);state.selected=1;
+  display.labels.clear();ft8_screen(display,state,true,false,false,false);assert(map_calls==1);
+  state.frequency_hz=14074000;display.labels.clear();ft8_screen(display,state,true,false,false,false);
+  assert(map_calls==1); // cached station from another frequency must not draw
   state.dashboard=Dashboard::sstv;state.frequency_hz=14230000;state.step_hz=1000;
   state.sstv.valid=true;state.sstv.mode=1;state.sstv.state=4;state.sstv.row=120;state.sstv.rows=240;
   auto sstv_paint=[&] {display.labels.clear();sstv_screen(display,state,Focus::vfo,true,false);};

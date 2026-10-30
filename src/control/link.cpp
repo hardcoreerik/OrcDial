@@ -184,12 +184,14 @@ void Link::poll() {
   }
   const uint32_t generation = secure_.generation();
   if (generation != secure_generation_) {
+    if (pending_sequence_) Serial.println("ACTION_REJECTED session_changed");
     secure_generation_ = generation; connected_ = false; last_state_sequence_ = 0;
     pending_sequence_ = 0; ft8_receiver_.reset();
   }
   ft8_receiver_.expire(millis());
   const auto status=secure_.status();paused_=status.state==secure::State::paused;
   if(status.state!=secure::State::connected){
+    if (pending_sequence_) Serial.println("ACTION_REJECTED link_offline");
     connected_=false;pending_sequence_=0;last_state_sequence_=0;connected_at_=0;
     ft8_receiver_.reset(); // never show a previously paired station as live
     return;

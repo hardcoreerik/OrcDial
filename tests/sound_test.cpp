@@ -12,6 +12,12 @@ struct Speaker {
   }
 };
 int main() {
+  { // Failed playback is bounded: drop the alert rather than retry every loop.
+    Settings s;s.enabled=true;Player p;Speaker rejected;rejected.accept=false;
+    p.configure(s,rejected);assert(p.notify(Event::complete,1));
+    assert(!p.tick(0,rejected) && !p.pending() && !p.active() && p.played_count()==0);
+    assert(!p.tick(1000,rejected) && rejected.tones==1);
+  }
   Settings settings;Player player;Speaker speaker;
   player.configure(settings,speaker);
   assert(!player.notify(Event::complete,1)); // opt-in alerts

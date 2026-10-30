@@ -33,6 +33,13 @@ inline void load_settings(DialSettings& s) {
   s.sound.muted = p.getBool("snd_mute", s.sound.muted);
   s.sound.volume = p.getUChar("snd_vol", s.sound.volume);
   s.sound.events = p.getUChar("snd_events", s.sound.events) & sound::kAllEvents;
+  const uint32_t packed = p.getUInt("sound_v1", 0);
+  if ((packed >> 24) == 1) {
+    s.sound.enabled = packed & 1;
+    s.sound.muted = packed & 2;
+    s.sound.volume = uint8_t(packed >> 8);
+    s.sound.events = uint8_t(packed >> 16) & sound::kAllEvents;
+  }
   p.end();
 }
 // False when the storage could not be opened (the change still applies until the next boot).
@@ -44,10 +51,10 @@ inline bool save_settings(const DialSettings& s) {
   p.putUChar("accel", s.accel);
   p.putBool("invert", s.invert);
   p.putBool("click", s.click);
-  const bool sound_saved = p.putBool("snd_on", s.sound.enabled) == 1 &&
-      p.putBool("snd_mute", s.sound.muted) == 1 &&
-      p.putUChar("snd_vol", s.sound.volume) == 1 &&
-      p.putUChar("snd_events", s.sound.events) == 1;
+  // One NVS entry keeps alert enable and master mute together across failed writes.
+  const uint32_t packed = (1u << 24) | (uint32_t(s.sound.events & sound::kAllEvents) << 16) |
+      (uint32_t(s.sound.volume) << 8) | (s.sound.muted ? 2u : 0u) | (s.sound.enabled ? 1u : 0u);
+  const bool sound_saved = p.putUInt("sound_v1", packed) == sizeof(packed);
   p.end();
   return sound_saved;
 }

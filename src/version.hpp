@@ -1,6 +1,6 @@
 #pragma once
 
-#define ORCDIAL_VERSION "0.1.0-beta.1"
+#define ORCDIAL_VERSION "0.2.0-beta.1"
 #ifndef ORCDIAL_SOURCE_COMMIT
 #define ORCDIAL_SOURCE_COMMIT "unknown"
 #endif
