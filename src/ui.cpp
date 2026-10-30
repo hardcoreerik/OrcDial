@@ -812,6 +812,14 @@ static void sstv_screen(lgfx::LGFXBase& d, const RadioState& state, Focus focus,
   d.setTextSize(1.5f);draw_text(d,sstv_tune?"TUNE":"RECEIVE",120,57);
   frequency(d,state.frequency_hz,85,2,cyan);
   const auto& s=state.sstv;
+  if(connected && s.valid) {
+    char status[32];
+    if(s.pending)std::snprintf(status,sizeof status,"SD SAVING...");
+    else if(s.failed)std::snprintf(status,sizeof status,"SD ERRORS %lu",(unsigned long)s.failed);
+    else if(s.saved)std::snprintf(status,sizeof status,"SD SAVED %lu",(unsigned long)s.saved);
+    else std::snprintf(status,sizeof status,"%s",s.flags&sstv_control::kSd?"SD READY":"NO SD CARD");
+    d.setTextSize(1);draw_text(d,status,120,43);
+  }
   d.setTextSize(1);draw_text(d,"MHz",120,100);
   if(!connected || !s.valid) {
     d.setTextColor(dim,bg);draw_text(d,connected?"UPDATE TAB5 FOR SSTV":"OFFLINE",120,127);
