@@ -1,5 +1,7 @@
 #pragma once
 #include "control/protocol.hpp"
+#include "control/projection_capabilities.hpp"
+#include "maidenhead_grid.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -52,7 +54,7 @@ inline bool valid_mode(uint8_t mode) { return mode <= 6; }
 inline bool decode_brief(const uint8_t wire[packet_size], Card& out) {
   Packet p{};
   if (!decode(wire, packet_size, p) || p.role != Role::receiver ||
-      p.type != Type::ft8_decode_brief || !p.sender || !p.sequence) return false;
+      p.type != Type::ft8_decode_brief || !p.sender || !p.sequence || p.band || p.ack) return false;
   Card card{};
   card.sender = p.sender;
   card.record_id = p.sequence;
@@ -67,6 +69,8 @@ inline bool decode_brief(const uint8_t wire[packet_size], Card& out) {
       !printable_cstr(wire + 28, 16, card.callsign, 16) ||
       !printable_cstr(wire + 44, 9, card.grid, 9)) return false;
   if (!(card.flags & kGridAssociated) && card.grid[0]) return false;
+  if ((card.flags & kGridAssociated) && (!card.callsign[0] || !maidenhead::center(card.grid).valid)) return false;
+  if ((card.flags & kTimeValid) && !card.utc_epoch) return false;
   if (!(card.flags & kSnrValid) && card.snr_db != 0) return false;
   card.valid = true;
   out = card;
@@ -77,13 +81,43 @@ inline bool decode_text(const uint8_t wire[packet_size], Card& card) {
   Packet p{};
   if (!decode(wire, packet_size, p) || p.role != Role::receiver ||
       p.type != Type::ft8_decode_text || !card.valid || p.sender != card.sender ||
-      p.sequence != card.record_id) return false;
+      p.sequence != card.record_id || p.band || p.ack) return false;
   char text[40]{};
   if (!printable_cstr(wire + 20, 40, text, sizeof(text))) return false;
   std::memcpy(card.message, text, sizeof(text));
   card.message_received = true;
   return true;
 }
+
+// UI-task cache. Expiry retains the high-water record so retransmission cannot
+// revive an expired decode. Context changes deliberately establish a new cache.
+class Receiver {
+ public:
+  void reset() { *this = {}; }
+  void context(uint32_t sender, bool active, uint32_t capabilities) {
+    const bool enabled = active && (capabilities & projection::kFt8V1);
+    if (sender != sender_ || enabled != enabled_) { reset(); sender_ = sender; enabled_ = enabled; }
+  }
+  bool receive(const uint8_t* wire, uint32_t now) {
+    expire(now);
+    if (!enabled_) return false;
+    Packet p{};
+    if (!decode(wire, packet_size, p) || p.sender != sender_) return false;
+    if (p.type == Type::ft8_decode_brief) {
+      Card next{};
+      if (!decode_brief(wire, next) || !newer_sequence(next.record_id, record_)) return false;
+      card_ = next; record_ = next.record_id; at_ = now;
+      return true;
+    }
+    return p.type == Type::ft8_decode_text && decode_text(wire, card_);
+  }
+  void expire(uint32_t now) { if (card_.valid && uint32_t(now-at_) >= projection::kFreshMs) card_ = {}; }
+  const Card& card() const { return card_; }
+ private:
+  Card card_{};
+  uint32_t sender_ = 0, record_ = 0, at_ = 0;
+  bool enabled_ = false;
+};
 
 // Encode helpers for a receiver-side host test or future negotiated Tab5
 // producer. Never call these from the Dial: receiver-only fields.

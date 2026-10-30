@@ -3,7 +3,26 @@
 **Development snapshot:** 2026-10-29. **Status: ACTIVE DEVELOPMENT / NOT HARDWARE ACCEPTED / NOT RELEASED.**
 **Branch:** `chatgpt/orcdial-2-animated-ui-ft8-20261029`, stacked on planning branch `chatgpt/orcdial-2-design-20261029` (draft PR #14, planning PR #13).
 **Receiver branch:** `hardcoreerik/OrcSDR:chatgpt/orcdial-2-ft8-projection-20261029` (draft PR #226).
-**No source files merged to main; no devices flashed.**
+**No source files merged to main.** The earlier slice-1 firmware was flashed on
+COM14 during the preceding authorized session and boot identity verified at
+`eb34e83`; that was not two-device FT8 acceptance. The October 30 integration
+changes below have not been flashed.
+
+## October 30 integration continuation
+
+The matching OrcSDR development branch now connects real FT8 result draining to
+a bounded latest-decode producer and the existing authenticated transport.
+Explicit schema-1 negotiation uses existing state/heartbeat fields, with a
+3500 ms lease. The Dial now gates metadata on the advertised feature, expires
+records after 60 seconds, preserves text across duplicate summaries and rejects
+invalid reserved fields or locator associations. No pairing protocol or C6
+firmware change was required. See `PROTOCOL.md` and OrcSDR's
+`docs/ORCDIAL_FT8_INTEGRATION.md` for the exact contract and validation gates.
+
+The older October 29 notes and evidence ledger below describe the original
+slice. The new publisher and capability negotiation supersede the first two
+NOT-yet-implemented bullets only; history/multi-station mapping and physical
+acceptance remain incomplete.
 
 ## Delivered code
 
@@ -17,8 +36,8 @@
 
 ## Important NOT yet implemented
 
-- **No live Tab5 publisher** yet. OrcSDR's new `apps/orcsdr-tab5/ui/ft8_dial_preview.hpp` prepares frames only; it intentionally does not transmit, modify the C6 bridge or call the model from app main. User must not interpret a silent/old Dial as broken because it shows no new decode.
-- **No negotiated peer capability** yet. A Tab5 must not start sending Type17/18 to older Dials without an explicit negotiated feature/allowlist; old receivers/old Dials must retain their control behavior.
+- **Historical October 29 limitation, superseded October 30:** no live Tab5 publisher then. OrcSDR's new `apps/orcsdr-tab5/ui/ft8_dial_preview.hpp` prepares frames only; it intentionally does not transmit, modify the C6 bridge or call the model from app main. User must not interpret a silent/old Dial as broken because it shows no new decode.
+- **Historical October 29 limitation, superseded October 30:** no negotiated peer capability then. A Tab5 must not start sending Type17/18 to older Dials without an explicit negotiated feature/allowlist; old receivers/old Dials must retain their control behavior.
 - FT8 history item 2+ is still represented by the Tab5-provided index/count. Map currently shows one validated *latest* CQ locator, not all-stations tracking, no distance/bearing (receiver position not yet projected).
 - Dead Air is visual/UI shell only, not remote event/sweep/microphone/clip control and not live dBFS telemetry.
 - No PSK Reporter, NOAA, callbook API, actual native M5GFX capture, pairing/coexistence performance measurement, human readability hardware test or firmware flash.

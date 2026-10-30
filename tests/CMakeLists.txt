@@ -18,12 +18,13 @@ add_executable(protocol_test protocol_test.cpp)
 add_executable(controller_test controller_test.cpp)
 add_executable(ui_motion_test ui_motion_test.cpp)
 add_executable(ft8_projection_test ft8_projection_test.cpp)
+add_executable(projection_delivery_test projection_delivery_test.cpp)
 add_executable(maidenhead_grid_test maidenhead_grid_test.cpp)
 add_executable(runtime_test runtime_test.cpp)
 add_executable(policy_test policy_test.cpp)
 target_include_directories(runtime_test PRIVATE runtime_stubs)
 target_link_libraries(runtime_test PRIVATE mbedcrypto)
-foreach(test_target security_test protocol_test controller_test runtime_test policy_test ui_motion_test ft8_projection_test maidenhead_grid_test)
+foreach(test_target security_test protocol_test controller_test runtime_test policy_test ui_motion_test ft8_projection_test maidenhead_grid_test projection_delivery_test)
   if(MSVC)
     target_compile_options(${test_target} PRIVATE /UNDEBUG)
   else()
@@ -39,3 +40,13 @@ add_test(NAME controller COMMAND controller_test)
 add_test(NAME ui_motion COMMAND ui_motion_test)
 add_test(NAME ft8_projection COMMAND ft8_projection_test)
 add_test(NAME maidenhead_grid COMMAND maidenhead_grid_test)
+
+add_test(NAME projection_delivery COMMAND projection_delivery_test)
+
+# Optional cross-repository test: use the real receiver encoder over real secure sessions.
+if(ORCSDR_SOURCE_DIR)
+  target_sources(security_test PRIVATE
+    "${ORCSDR_SOURCE_DIR}/tests/ft8_dial_interop_source.cpp"
+    "${ORCSDR_SOURCE_DIR}/apps/orcsdr-tab5/ui/ft8_model.cpp")
+  target_compile_definitions(security_test PRIVATE ORCDIAL_RECEIVER_INTEROP=1)
+endif()

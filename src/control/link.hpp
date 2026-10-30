@@ -31,7 +31,7 @@ class Link {
   bool pending() const { return pending_sequence_ != 0; }
   uint32_t pending_sequence() const { return pending_sequence_; }
   const RadioState& state() const { return state_; }
-  const ft8_projection::Card& ft8_card() const { return ft8_card_; }
+  const ft8_projection::Card& ft8_card() const { return ft8_receiver_.card(); }
   uint32_t last_ack() const { return last_ack_; }
   // Radio diagnostics: counters and a bounded event trace that separate "frame accepted by the
   // ESP-NOW stack" from "frame completed on air" and show which channel each event happened on.
@@ -68,7 +68,8 @@ class Link {
   bool paused_ = false;
   Packet pending_{};
   RadioState state_{};
-  ft8_projection::Card ft8_card_{};
+  ft8_projection::Receiver ft8_receiver_{};
+  uint32_t secure_generation_ = 0;
   secure::Runtime secure_;
   static Link* active_;
   static volatile uint8_t channel_;
