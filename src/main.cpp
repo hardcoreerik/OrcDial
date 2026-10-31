@@ -394,6 +394,11 @@ static void poll_serial_commands() {
       radio_link.rf_trace(uint8_t(command[17]-'0')); Serial.println("ORCDIAL_RF_TRACE_OK");
     } else if (!std::strcmp(command, "ORCDIAL_STATUS")) {
       const auto security=radio_link.security_status();
+      Serial.print("ORCDIAL_IDENTITY self=");
+      for (const auto byte : security.identity) Serial.printf("%02x", unsigned(byte));
+      Serial.print(" peer=");
+      for (const auto byte : security.peer_identity) Serial.printf("%02x", unsigned(byte));
+      Serial.println();
       Serial.printf("ORCDIAL_SECURITY trust=%d connection=%s boot=%d failure=%s code=%06lu protocol=4\n",security.trusted,orc::secure::state_name(security.state),security.boot_connect,orc::secure::failure_name(security.failure),(unsigned long)security.code);
       Serial.printf("ORCDIAL_LINK paused=%d\n", radio_link.paused() ? 1 : 0);
       uint8_t channel = 0;

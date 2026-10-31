@@ -32,6 +32,10 @@ or an image preview. The Tab5 owns decoding and the SD archive.
 Repeat SAVE or ABORT to confirm. Existing `ORCDIAL_ROTATE` and `ORCDIAL_PRESS`
 use the same semantic actions as the encoder. TEST is simulated sound only.
 STATUS exposes alert configuration, pending/active/driver state and played count.
+`ORCDIAL_STATUS` also emits `ORCDIAL_IDENTITY self=<32 hex> peer=<32 hex>` so
+paired bench tools can verify the specified receiver before sending controls.
+These are public companion identities; no pairing key or session proof is emitted.
+This diagnostic is a follow-up to the 0.2.0-beta.1 release.
 
 The authenticated RADIO_STATE SSTV projection uses dashboard 18 and schema bit
 30. It carries session/state/mode, rows, complete images, SD saves/failures,
