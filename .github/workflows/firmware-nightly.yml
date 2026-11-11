@@ -4,6 +4,8 @@ name: Firmware nightly
 # the host tests pass, publishes it to the rolling `nightly` prerelease (merged .bin, ELF,
 # SHA256SUMS, build-info.json), then tells theorc.dev (repository_dispatch if SITE_DISPATCH_TOKEN
 # is set; theorc-site also polls hourly). Never touches release tags.
+# The report job then opens, comments on, or closes a `nightly-failure` issue. It does not
+# build, test, or publish.
 on:
   schedule:
     - cron: '27 10 * * *'   # 03:27 PDT / 02:27 PST (OrcSDR builds at :23)
@@ -169,3 +171,37 @@ jobs:
       - name: No SITE_DISPATCH_TOKEN
         if: env.HAS_DISPATCH != 'true'
         run: echo "SITE_DISPATCH_TOKEN not set; theorc.dev picks the build up on its hourly sync." >> "$GITHUB_STEP_SUMMARY"
+
+  # Files or closes the nightly-failure issue after the firmware jobs. Cancelled runs skip
+  # this job, and the script also refuses to write when any needed job was cancelled.
+  # continue-on-error keeps an alert problem from turning a healthy nightly red.
+  # Nothing needs this job, and it does not upload or delete release assets.
+  report:
+    name: Report nightly result
+    needs: [gate, build, publish]
+    if: ${{ always() && !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    continue-on-error: true
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+    steps:
+      # The script belongs to this workflow revision. The gate checks out main to build
+      # firmware; this checkout follows the workflow SHA instead.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Open, comment, or close the nightly-failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GATE_RESULT: ${{ needs.gate.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          PUBLISH_RESULT: ${{ needs.publish.result }}
+          GATE_BUILD: ${{ needs.gate.outputs.build }}
+          GATE_SHA: ${{ needs.gate.outputs.sha }}
+          ALERT_ASSIGNEE: hardcoreerik
+          ALERT_LABEL: nightly-failure
+        run: bash .github/scripts/nightly-failure-alert.sh
